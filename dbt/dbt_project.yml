@@ -1,0 +1,16 @@
+# Proyecto dbt del grupo07 — Ingeniería de Datos, LCD UCA 2026.
+# Transforma bronze (URLhaus en MinIO) en silver (stg_urlhaus) y gold (fct_amenazas_mensual) sobre DuckDB.
+name: 'proyecto_id'
+version: '1.0.0'
+config-version: 2
+profile: 'ingdatos'
+
+model-paths:  ["models"]
+target-path:  "target"
+clean-targets: ["target", "dbt_packages"]
+
+# La clave tiene que ser igual a `name` (proyecto_id). Ambos modelos se materializan como tabla:
+# stg_urlhaus (silver) y fct_amenazas_mensual (gold, la que se publica en PostgreSQL).
+models:
+  proyecto_id:
+    +materialized: table
