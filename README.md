@@ -47,7 +47,12 @@ PostgreSQL  warehouse.grupo07.*  ──▶  Metabase
 
 ## Backfill
 
-Cada corrida procesa solo su intervalo de Airflow, nunca la fecha de hoy. Como no tenemos CLI en el servidor, el backfill se dispara desde la interfaz: ▶ → *Trigger DAG w/ config* → poner una **Logical date** pasada (por ejemplo `2025-01-15`) → *Trigger*. Detalle en [`docs/BACKFILL.md`](docs/BACKFILL.md).
+Cada corrida procesa solo su intervalo, nunca la fecha de hoy. Sin CLI en el servidor, se dispara desde la interfaz con ▶ → *Trigger DAG w/ config*:
+
+- **Un día:** una *Logical date* pasada (por ejemplo `2025-03-15`), con `desde` y `hasta` vacíos.
+- **Un rango:** los parámetros `desde` y `hasta` (por ejemplo `2018-01-01` y `2026-11-01`). Reprocesa todo el rango en una sola corrida, mes por mes, sin duplicar.
+
+Detalle y límites en [`docs/BACKFILL.md`](docs/BACKFILL.md).
 
 ## Documentación
 
