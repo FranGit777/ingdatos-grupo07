@@ -18,3 +18,7 @@ __pycache__/
 
 # dbt
 dbt/.user.yml
+
+# Notebooks y archivos viejos del JupyterHub que no van al repo
+_viejos/
+*.tgz
