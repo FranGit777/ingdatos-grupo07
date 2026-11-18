@@ -1,4 +1,4 @@
-"""Carga un bronze chico de prueba en MinIO para correr dbt en el CI.
+"""Carga un bronze chico de prueba en S3 (MinIO o moto) para correr dbt en el CI.
 
 Mismo esquema y misma ruta que escribe `extraer_bronze` del DAG
 (s3://<MINIO_BUCKET>/bronze/series, Delta Lake). Las filas están armadas para
