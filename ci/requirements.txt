@@ -1,0 +1,6 @@
+# Dependencias del job de dbt en el CI (el de Airflow usa los constraints oficiales)
+dbt-duckdb==1.10.1
+duckdb>=1.5,<1.6        # misma rama que el JupyterHub (1.5.5)
+deltalake>=0.25
+pyarrow>=17
+boto3>=1.34

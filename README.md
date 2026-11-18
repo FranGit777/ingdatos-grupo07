@@ -54,3 +54,15 @@ Cada corrida procesa solo su intervalo de Airflow, nunca la fecha de hoy. Como n
 - [`docs/BACKFILL.md`](docs/BACKFILL.md): cómo el DAG reprocesa el pasado sin duplicar.
 
 Fuente de los datos: URLhaus, abuse.ch (https://urlhaus.abuse.ch).
+
+## Integración continua
+
+`.github/workflows/ci.yml` corre en cada push y en cada pull request, con tres jobs en paralelo:
+
+| Job | Qué verifica |
+| --- | --- |
+| Sin credenciales en el repo | Que no haya un `.env` versionado ni claves escritas en el código |
+| DAG importa en Airflow | Con Airflow 2.10.5: que `dags/` importe sin errores y que `pipeline_grupo07` tenga sus 5 tareas, las dependencias, el schedule, los reintentos y el intervalo de Airflow en `extraer_bronze` (`ci/verificar_dag.py`) |
+| dbt parse + build | Levanta un MinIO descartable, carga un bronze de prueba con la misma ruta y esquema que el DAG (`ci/bronze_de_prueba.py`) y corre `dbt parse` y `dbt build` con los 21 tests |
+
+Si un job falla, el check queda en rojo y la protección de rama de `main` impide mergear el cambio.
