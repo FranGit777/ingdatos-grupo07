@@ -51,3 +51,40 @@ models:
         tests: [not_null]
       - name: tipo_archivo
         tests: [not_null]
+
+  - name: fct_features_familias
+    description: >
+      Features por mes y familia de malware, para anticipar qué familias crecen. Una fila por
+      (mes, familia) desde el primer mes en que aparece la familia; los meses sin URLs valen 0.
+      Todas las ventanas miran solo hacia atrás: el valor de un mes no usa meses posteriores.
+    columns:
+      - name: fecha
+        description: "Primer día del mes calendario."
+        tests: [not_null]
+      - name: anio
+        description: "Año del mes (para filtrar sin tocar la fecha)."
+      - name: mes
+        description: "Número de mes, 1 a 12."
+      - name: familia_malware
+        description: "Familia de malware (igual que en fct_familias_mensual)."
+        tests: [not_null]
+      - name: cantidad_amenazas
+        description: "URLs nuevas de la familia registradas en el mes (0 si no hubo)."
+        tests: [not_null]
+      - name: cantidad_mes_anterior
+        description: "URLs de la familia en el mes calendario anterior (0 si no hubo o si es su primer mes)."
+        tests: [not_null]
+      - name: variacion_mensual_pct
+        description: "Cambio % contra el mes anterior. Vacío si el mes anterior tuvo 0 URLs (no se puede dividir)."
+      - name: promedio_movil_3m
+        description: "Promedio de URLs por mes en el mes actual y los dos anteriores (menos meses si la familia es más nueva)."
+        tests: [not_null]
+      - name: acumulado
+        description: "Total de URLs de la familia desde su primera aparición hasta este mes inclusive."
+        tests: [not_null]
+      - name: pct_del_mes
+        description: "Porcentaje que representa la familia sobre todas las URLs nuevas del mes."
+        tests: [not_null]
+      - name: mes_completo
+        description: "Falso solo para el último mes con datos, que puede estar incompleto: sus valores van a cambiar."
+        tests: [not_null]

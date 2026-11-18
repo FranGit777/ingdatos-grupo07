@@ -2,7 +2,8 @@
 DAG pipeline_grupo07 — URLhaus -> bronze (Delta en MinIO) -> dbt (silver/gold en DuckDB) -> PostgreSQL.
 
 Gold publicada: fct_familias_mensual (atómica: por mes, tipo de amenaza, familia de malware
-y tipo de archivo, sacados de los tags de URLhaus) y fct_amenazas_mensual (su resumen por tipo).
+y tipo de archivo, sacados de los tags de URLhaus), fct_amenazas_mensual (su resumen por tipo)
+y fct_features_familias (features por mes y familia, sin fuga temporal).
 
 Ingeniería de Datos — LCD · UCA Rosario · 2026 · grupo07
 
@@ -279,6 +280,16 @@ def _publicar_gold(env_file, dbt_run):
                          ("tipo_archivo", "text"), ("cantidad_amenazas", "bigint")],
             "clave": ["anio", "mes", "tipo_amenaza", "familia_malware", "tipo_archivo"],
         },
+        # Features (E4): definidos en dbt (fct_features_familias); acá solo se copian
+        "fct_features_familias": {
+            "columnas": [("fecha", "date"), ("anio", "integer"), ("mes", "integer"),
+                         ("familia_malware", "text"), ("cantidad_amenazas", "bigint"),
+                         ("cantidad_mes_anterior", "bigint"), ("variacion_mensual_pct", "numeric(14,2)"),
+                         ("promedio_movil_3m", "numeric(14,2)"), ("acumulado", "bigint"),
+                         ("pct_del_mes", "numeric(5,2)"), ("mes_completo", "boolean")],
+            "clave": ["fecha", "familia_malware"],
+            "nulos": {"variacion_mensual_pct"},     # vacía si el mes anterior tuvo 0 URLs
+        },
     }
 
     # 1) Leer gold de DuckDB (lo dejó dbt_build)
@@ -296,6 +307,16 @@ def _publicar_gold(env_file, dbt_run):
                 raise RuntimeError(f"{nombre} está vacía en DuckDB: no publico una tabla vacía.")
     finally:
         con.close()
+
+    # Descripciones de schema.yml (dbt las deja en target/manifest.json): se copian como COMMENT
+    # en PostgreSQL, así la documentación se escribe una sola vez y Metabase la muestra.
+    import json
+    docs = {}
+    ruta_manifest = os.path.join(dbt_run, "target", "manifest.json")
+    if os.path.exists(ruta_manifest):
+        for nodo in json.load(open(ruta_manifest, encoding="utf-8"))["nodes"].values():
+            if nodo.get("resource_type") == "model" and nodo["name"] in TABLAS:
+                docs[nodo["name"]] = nodo
 
     # 2) Escribir en PostgreSQL en UNA transacción: si algo falla, quedan las versiones anteriores
     pg = psycopg2.connect(host=os.environ.get("PGHOST", "postgres"),
@@ -321,7 +342,8 @@ def _publicar_gold(env_file, dbt_run):
                 esquema = fila[0]
             for nombre, t in TABLAS.items():
                 tabla = f'"{esquema}".{nombre}'
-                columnas = ",\n".join(f"{c} {tipo} not null" for c, tipo in t["columnas"])
+                columnas = ",\n".join(f"{c} {tipo}{'' if c in t.get('nulos', ()) else ' not null'}"
+                                       for c, tipo in t["columnas"])
                 chequeo = ", check (mes between 1 and 12)" if any(c == "mes" for c, _ in t["columnas"]) else ""
                 # Si la tabla ya existe con otras columnas (cambió el modelo), se recrea.
                 # Sin CASCADE: si una vista depende de ella, falla y avisa en vez de borrarla.
@@ -341,6 +363,14 @@ def _publicar_gold(env_file, dbt_run):
                         primary key ({", ".join(t["clave"])}){chequeo}
                     )
                 """)
+                d = docs.get(nombre, {})
+                if d.get("description"):
+                    cur.execute(f"comment on table {tabla} is %s", (" ".join(d["description"].split()),))
+                for col, info in d.get("columns", {}).items():
+                    if info.get("description") and col in {c for c, _ in t["columnas"]}:
+                        cur.execute(f'comment on column {tabla}."{col}" is %s', (info["description"],))
+                cur.execute(f"comment on column {tabla}.actualizado_en is %s",
+                            ("Momento en que el DAG pipeline_grupo07 publicó la fila.",))
                 cur.execute(f"truncate {tabla}")
                 lista = ", ".join(c for c, _ in t["columnas"])
                 execute_values(cur, f"insert into {tabla} ({lista}) values %s", datos[nombre])
