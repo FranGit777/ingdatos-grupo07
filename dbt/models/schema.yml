@@ -1,0 +1,53 @@
+version: 2
+
+models:
+  - name: stg_urlhaus
+    description: "Capa Silver: Amenazas deduplicadas y tipadas de URLhaus."
+    columns:
+      - name: id_amenaza
+        tests:
+          - not_null
+          - unique
+      - name: fecha_agregado
+        tests:
+          - not_null
+      - name: familia_malware
+        description: "Primer tag de URLhaus que nombra una familia de malware; 'sin_familia' si no hay."
+        tests:
+          - not_null
+      - name: tipo_archivo
+        description: "Tipo de archivo según los tags (elf, exe, sh, ...); 'desconocido' si no hay."
+        tests:
+          - not_null
+
+  - name: fct_amenazas_mensual
+    description: "Capa Gold agregada: amenazas por mes y tipo, derivada de fct_familias_mensual. Consumido por BI."
+    columns:
+      - name: anio
+        tests: [not_null]
+      - name: mes
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      - name: tipo_amenaza
+        tests: [not_null]
+
+  - name: fct_familias_mensual
+    description: "Capa Gold atómica: amenazas por mes, tipo de amenaza, familia de malware y tipo de archivo. Consumido por BI."
+    columns:
+      - name: fecha
+        tests: [not_null]
+      - name: mes
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      - name: tipo_amenaza
+        tests: [not_null]
+      - name: familia_malware
+        tests: [not_null]
+      - name: tipo_archivo
+        tests: [not_null]
