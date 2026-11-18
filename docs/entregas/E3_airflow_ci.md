@@ -36,7 +36,7 @@ Cada tarea hace una cosa, así se ve en el grafo dónde falló y se reintenta so
 
 Cada corrida procesa su intervalo (`data_interval_start` a `data_interval_end`), que recibe del contexto de Airflow: **ninguna tarea le pregunta la fecha al reloj** para decidir qué datos procesar. Sin CLI en el servidor, se dispara desde la interfaz con ▶ → **Trigger DAG w/ config**:
 
-- **Un día pasado:** poner la *Logical date* (por ejemplo `2026-11-10`) y dejar `desde` y `hasta` vacíos. El log de `extraer_bronze` muestra `Intervalo a procesar: [2026-11-10 03:00 UTC, 2026-11-11 03:00 UTC)` y cuántas URLs escribió.
+- **Un día pasado:** poner la *Logical date* (por ejemplo `2026-11-10`) y dejar `desde` y `hasta` vacíos. El log de `extraer_bronze` muestra `Intervalo a procesar: [...]` con el día elegido (no el de hoy) y cuántas URLs escribió por mes.
 - **Un rango:** completar `desde` y `hasta` (por ejemplo `2026-10-01` y `2026-11-01`). Reprocesa el rango completo **en una sola corrida**.
 
 **¿Qué pasaría con dos años?** Con el backfill clásico serían ~730 corridas diarias, cada una bajando la base completa de URLhaus, corriendo dbt entero y republicando: horas de trabajo repetido, y sin CLI, disparadas una por una. Por eso el DAG acepta el rango en una corrida: baja el export una vez, lo lee en streaming y escribe en bronze mes por mes (nunca más de 300.000 filas en memoria), y después corre dbt y la publicación una sola vez.
