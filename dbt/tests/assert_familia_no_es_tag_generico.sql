@@ -7,7 +7,8 @@ from {{ ref('stg_urlhaus') }}
 where lower(familia_malware) in ('elf', 'exe', 'zip', 'sh', '32-bit', '64-bit', 'arm', 'mips',
                                  'x86', 'github', 'discord', 'dropbox', 'opendir', 'ua-wget',
                                  'malware-download', 'c2-monitor-auto', 'dll-sideloading',
-                                 'cowrie', 'ssh', 'encoded')
+                                 'cowrie', 'ssh', 'encoded', 'botnet', 'iot', 'docker')
+   or regexp_matches(lower(familia_malware), '^[0-9a-f]{6,}$')
    or regexp_matches(familia_malware, '^[A-Z]{2,3}$')
    -- una IP (176-65-139-204, 94.154.43.26, con o sin puerto)
    or regexp_matches(familia_malware, '^[0-9]{1,3}([.-][0-9]{1,3}){3}([.:-][0-9]{1,5})?$')

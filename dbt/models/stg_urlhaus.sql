@@ -17,7 +17,8 @@
                      'malicious', 'script', 'stealer', 'rat', 'trojan', 'hfs', 'censys',
                      'unknown', 'none', 'null', 'nan',
                      'malware-download', 'c2-monitor-auto', 'dll-sideloading',
-                     'cowrie', 'honeypot', 'ssh', 'telnet', 'encoded'] -%}
+                     'cowrie', 'honeypot', 'ssh', 'telnet', 'encoded',
+                     'botnet', 'iot', 'automated', 'java', 'docker', 'stego'] -%}
 {#- Tags que son una IP (con puntos o guiones, a veces con puerto: 176-65-134-121-8080) o un
     dominio (pw-dvx.to, o con guiones en lugar de puntos: bauble-cleverpondky-com). Indican de
     dónde se descargaba el archivo, no qué malware es. -#}
@@ -77,6 +78,7 @@ clasificados as (
                or regexp_matches(tag, '^[A-Z]{2,3}$')        -- códigos de país: CHN, USA, ...
                or regexp_matches(tag, '{{ patron_ip }}')
                or regexp_matches(lower(tag), '{{ patron_dominio }}')
+               or regexp_matches(lower(tag), '^[0-9a-f]{6,}$')   -- pedazos de hash (d52f85)
                or lower(tag) like 'dropped-by%'
                or lower(tag) like 'ua-%'
              then null else tag end as familia
