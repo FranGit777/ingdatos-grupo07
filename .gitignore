@@ -1,0 +1,17 @@
+# Credenciales: nunca al repo
+.env
+*.env
+!.env.example
+
+# Artefactos de dbt y DuckDB
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+*.duckdb
+*.duckdb.wal
+dags/dbt/
+
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
