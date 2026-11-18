@@ -32,6 +32,7 @@ import os
 
 import pendulum
 from airflow.models.dag import DAG
+from airflow.models.param import Param
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import ExternalPythonOperator
 
@@ -125,9 +126,14 @@ def _extraer_bronze(env_file, inicio, fin):
         raise RuntimeError("Falta URLHAUS_AUTH_KEY en dags/.env")
     cabecera = {"Auth-Key": clave}
 
-    # 1) El intervalo lo decide Airflow (data_interval_start / data_interval_end), no el reloj
-    desde = pd.Timestamp(inicio).tz_convert("UTC")
-    hasta = pd.Timestamp(fin).tz_convert("UTC")
+    # 1) El intervalo viene del contexto de la corrida, nunca del reloj: el data_interval que
+    #    asigna Airflow o, en un reproceso, los parámetros desde/hasta del Trigger.
+    def utc(texto):
+        t = pd.Timestamp(texto)
+        return t.tz_localize("UTC") if t.tzinfo is None else t.tz_convert("UTC")
+    desde, hasta = utc(inicio), utc(fin)
+    if desde >= hasta:
+        raise ValueError(f"Intervalo vacío o al revés: [{desde}, {hasta})")
     print(f"Intervalo a procesar: [{desde}, {hasta})")
 
     # 2) Fuente. La API /urls/recent/ solo devuelve los últimos 3 días (máx. 1000 URLs), así que
@@ -162,67 +168,102 @@ def _extraer_bronze(env_file, inicio, fin):
             raise RuntimeError(f"Falló la descarga de {visible}: {type(e).__name__}") from None
         os.replace(archivo + ".parcial", archivo)
 
-    # 3) Leer el CSV en streaming (la base completa es grande) y quedarse con el intervalo.
+    # 3) Leer el CSV en streaming (la base completa es grande) y escribir en bronze por tramos.
     #    Formato de URLhaus: líneas de comentario con '#', fechas 'YYYY-MM-DD HH:MM:SS' en UTC.
+    #    El intervalo se parte en tramos de un mes calendario: una corrida diaria es un solo
+    #    tramo; un reproceso de años son muchos tramos, y nunca se tiene en memoria más que
+    #    unas pocas cientos de miles de filas.
     columnas = ['id', 'date_added', 'url', 'url_status', 'last_online',
                 'threat', 'tags', 'urlhaus_link', 'reporter']
-    texto_desde = desde.strftime("%Y-%m-%d %H:%M:%S")
-    texto_hasta = hasta.strftime("%Y-%m-%d %H:%M:%S")
-    if zipfile.is_zipfile(archivo):
-        zf = zipfile.ZipFile(archivo)
-        crudo = zf.open(zf.namelist()[0])
-    else:
-        crudo = open(archivo, "rb")
-    filas = []
-    with io.TextIOWrapper(crudo, encoding="utf-8", errors="replace", newline="") as lineas:
-        sin_comentarios = (l for l in lineas if not l.startswith("#"))
-        for r in csv.reader(sin_comentarios):
-            if len(r) < len(columnas) or not r[0].strip().isdigit():
-                continue
-            if texto_desde <= r[1] < texto_hasta:
-                filas.append(r[:len(columnas)])
-    print(f"{len(filas)} URLs de URLhaus en el intervalo")
-    if not filas:
-        print("Nada para escribir en este intervalo (bronze queda como estaba).")
-        return 0
-
-    # 4) Mismo esquema y tipos que la ingesta original por API (tags = lista de textos)
-    df = pd.DataFrame(filas, columns=columnas)
-    df["id"] = df["id"].astype("int64")
-    df["date_added"] = pd.to_datetime(df["date_added"], utc=True)
-    df["tags"] = df["tags"].map(lambda t: [x.strip() for x in t.split(",") if x.strip()] or None)
-    for col in ["url", "url_status", "last_online", "threat", "urlhaus_link", "reporter"]:
-        df[col] = df[col].where(df[col].str.strip().ne("") & df[col].ne("None"), None)
-    df = df.drop_duplicates(subset=["id"])
     esquema = pa.schema([
         ("id", pa.int64()), ("date_added", pa.timestamp("us", tz="UTC")),
         ("url", pa.string()), ("url_status", pa.string()), ("last_online", pa.string()),
         ("threat", pa.string()), ("tags", pa.list_(pa.string())),
         ("urlhaus_link", pa.string()), ("reporter", pa.string()),
     ])
-    tabla = pa.Table.from_pandas(df, schema=esquema, preserve_index=False)
+    texto_desde = desde.strftime("%Y-%m-%d %H:%M:%S")
+    texto_hasta = hasta.strftime("%Y-%m-%d %H:%M:%S")
 
-    # 5) Reemplazar SOLO las filas del intervalo: correr dos veces el mismo día da lo mismo
+    def tramo_de(texto_fecha):
+        """Clave 'YYYY-MM' del tramo y sus límites [inicio, fin), recortados al intervalo."""
+        clave_mes = texto_fecha[:7]
+        ini = max(desde, pd.Timestamp(clave_mes + "-01", tz="UTC"))
+        fin = min(hasta, pd.Timestamp(clave_mes + "-01", tz="UTC") + pd.offsets.MonthBegin(1))
+        return clave_mes, ini, fin
+
+    def a_tabla(filas):
+        df = pd.DataFrame(filas, columns=columnas)
+        df["id"] = df["id"].astype("int64")
+        df["date_added"] = pd.to_datetime(df["date_added"], utc=True)
+        df["tags"] = df["tags"].map(lambda t: [x.strip() for x in t.split(",") if x.strip()] or None)
+        for col in ["url", "url_status", "last_online", "threat", "urlhaus_link", "reporter"]:
+            df[col] = df[col].where(df[col].str.strip().ne("") & df[col].ne("None"), None)
+        df = df.drop_duplicates(subset=["id"])
+        return pa.Table.from_pandas(df, schema=esquema, preserve_index=False)
+
     try:
         DeltaTable(bronze, storage_options=opciones)
-        existe = True
+        existe = [True]
     except TableNotFoundError:
-        existe = False
-    if existe:
-        predicado = (f"date_added >= '{desde.strftime('%Y-%m-%dT%H:%M:%SZ')}' "
-                     f"AND date_added < '{hasta.strftime('%Y-%m-%dT%H:%M:%SZ')}'")
-        # schema_mode="merge": columnas que en la ingesta vieja quedaron sin tipo (todo None)
-        # pasan a texto en vez de hacer fallar la escritura
-        write_deltalake(bronze, tabla, mode="overwrite", predicate=predicado,
-                        schema_mode="merge", storage_options=opciones)
+        existe = [False]
+    escritos = {}           # tramo -> filas escritas en esta corrida
+
+    def volcar(clave_mes, filas):
+        # 4) Reemplazar SOLO las filas del tramo: la primera vez que se escribe un tramo en esta
+        #    corrida se pisan sus filas en bronze (overwrite con predicate); si el CSV vuelve a
+        #    traer filas de ese mismo tramo más adelante, se agregan. Correr dos veces el mismo
+        #    intervalo deja exactamente lo mismo.
+        tabla = a_tabla(filas)
+        _, ini, fin = tramo_de(clave_mes + "-01 00:00:00")
+        if not existe[0]:
+            write_deltalake(bronze, tabla, mode="append", storage_options=opciones)
+            existe[0] = True
+        elif clave_mes not in escritos:
+            predicado = (f"date_added >= '{ini.strftime('%Y-%m-%dT%H:%M:%SZ')}' "
+                         f"AND date_added < '{fin.strftime('%Y-%m-%dT%H:%M:%SZ')}'")
+            # schema_mode="merge": columnas que en la ingesta vieja quedaron sin tipo (todo None)
+            # pasan a texto en vez de hacer fallar la escritura
+            write_deltalake(bronze, tabla, mode="overwrite", predicate=predicado,
+                            schema_mode="merge", storage_options=opciones)
+        else:
+            write_deltalake(bronze, tabla, mode="append", schema_mode="merge",
+                            storage_options=opciones)
+        escritos[clave_mes] = escritos.get(clave_mes, 0) + tabla.num_rows
+
+    if zipfile.is_zipfile(archivo):
+        zf = zipfile.ZipFile(archivo)
+        crudo = zf.open(zf.namelist()[0])
     else:
-        write_deltalake(bronze, tabla, mode="append", storage_options=opciones)
-    # stg_urlhaus lee los .parquet directamente: se borran los archivos que el reemplazo
-    # dejó fuera de la tabla, para que dbt no lea versiones viejas.
+        crudo = open(archivo, "rb")
+    MAX_EN_MEMORIA = 300_000
+    pendientes, en_memoria = {}, 0
+    with io.TextIOWrapper(crudo, encoding="utf-8", errors="replace", newline="") as lineas:
+        sin_comentarios = (l for l in lineas if not l.startswith("#"))
+        for r in csv.reader(sin_comentarios):
+            if len(r) < len(columnas) or not r[0].strip().isdigit():
+                continue
+            if texto_desde <= r[1] < texto_hasta:
+                pendientes.setdefault(r[1][:7], []).append(r[:len(columnas)])
+                en_memoria += 1
+                if en_memoria >= MAX_EN_MEMORIA:
+                    for clave_mes in sorted(pendientes):
+                        volcar(clave_mes, pendientes[clave_mes])
+                    pendientes, en_memoria = {}, 0
+    for clave_mes in sorted(pendientes):
+        volcar(clave_mes, pendientes[clave_mes])
+
+    total = sum(escritos.values())
+    if not total:
+        print("Nada para escribir en este intervalo (bronze queda como estaba).")
+        return 0
+    for clave_mes in sorted(escritos):
+        print(f"  {clave_mes}: {escritos[clave_mes]} URLs")
+    # stg_urlhaus lee los .parquet directamente: se borran los archivos que los reemplazos
+    # dejaron fuera de la tabla, para que dbt no lea versiones viejas.
     DeltaTable(bronze, storage_options=opciones).vacuum(
         retention_hours=0, enforce_retention_duration=False, dry_run=False)
-    print(f"Bronze: {len(df)} filas del intervalo escritas (ids {df['id'].min()}..{df['id'].max()}).")
-    return len(df)
+    print(f"Bronze: {total} URLs del intervalo escritas en {len(escritos)} tramo(s) mensual(es).")
+    return total
 
 
 def _dbt_build(env_file, dbt_src, dbt_run, venv):
@@ -404,6 +445,14 @@ with DAG(
     max_active_runs=1,          # dos corridas a la vez pisarían /tmp/dbt_run_grupo07
     default_args=default_args,
     tags=["proyecto-integrador", "grupo07"],
+    # Reproceso de un rango en UNA corrida (Trigger DAG w/ config). Vacíos = el intervalo normal
+    # de la corrida. Ver docs/BACKFILL.md.
+    params={
+        "desde": Param(None, type=["null", "string"],
+                       description="Reproceso: primer día a reprocesar (AAAA-MM-DD, UTC). Vacío = intervalo de la corrida."),
+        "hasta": Param(None, type=["null", "string"],
+                       description="Reproceso: día siguiente al último a reprocesar (AAAA-MM-DD, UTC, excluido)."),
+    },
 ) as dag:
 
     preparar_entorno = BashOperator(
@@ -429,12 +478,13 @@ with DAG(
         op_kwargs={"env_file": ENV_FILE}, retries=0, **comunes)
 
     # El intervalo de cada corrida viaja como plantilla: Airflow la resuelve con las fechas de
-    # ESA corrida (también en un backfill), y la tarea no mira el reloj para filtrar.
+    # ESA corrida (también en un backfill), y la tarea no mira el reloj para filtrar. Si se
+    # dispara con los parámetros desde/hasta, reprocesa ese rango completo en una corrida.
     extraer_bronze = ExternalPythonOperator(
         task_id="extraer_bronze", python_callable=_extraer_bronze,
         op_kwargs={"env_file": ENV_FILE,
-                   "inicio": "{{ data_interval_start.isoformat() }}",
-                   "fin": "{{ data_interval_end.isoformat() }}"},
+                   "inicio": "{{ params.desde or data_interval_start.isoformat() }}",
+                   "fin": "{{ params.hasta or data_interval_end.isoformat() }}"},
         **comunes)
 
     dbt_build = ExternalPythonOperator(

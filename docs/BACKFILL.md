@@ -25,8 +25,22 @@ El reloj solo se usa para elegir cuál de los dos volcados descargar, porque el 
 
 ## Cómo correrlo
 
-```bash
-airflow dags backfill pipeline_grupo07 -s 2025-01-01 -e 2025-01-31
-```
+No tenemos la CLI de Airflow en el servidor de la cátedra: todo se hace desde la interfaz, con ▶ → **Trigger DAG w/ config**.
 
-En la UI se ve una corrida por día, con su propio `data_interval_start` y `data_interval_end`. El log de `extraer_bronze` muestra `Intervalo a procesar: [...]` y cuántas URLs había en ese intervalo.
+**Un día puntual.** Poner la *Logical date* del día (por ejemplo `2025-03-15`) y dejar `desde` y `hasta` vacíos. La corrida procesa `[data_interval_start, data_interval_end)` de esa fecha. El log de `extraer_bronze` muestra `Intervalo a procesar: [...]` y cuántas URLs había.
+
+**Un rango (meses o años).** Completar los parámetros `desde` (primer día, `AAAA-MM-DD`) y `hasta` (día siguiente al último, excluido). Por ejemplo `desde = 2018-01-01`, `hasta = 2026-11-01` reprocesa todo el histórico hasta octubre de 2026 **en una sola corrida**. El log lista cuántas URLs escribió por mes.
+
+## ¿Qué pasa si hay que reprocesar dos años?
+
+Con el backfill clásico de Airflow serían unas 730 corridas diarias. Cada una descargaría la base completa de URLhaus (la caché de 6 horas ayuda, pero un backfill largo la vence), correría `dbt build` entero y republicaría la gold: horas de trabajo repetido para el mismo resultado, y además sin CLI habría que dispararlas una por una.
+
+Por eso el DAG acepta un **rango en una sola corrida**:
+
+1. Descarga `full.csv.zip` una vez.
+2. Lo lee en streaming y parte el rango en **tramos de un mes calendario**. Cada tramo reemplaza en bronze solo sus filas (`overwrite` con `predicate` por fecha), igual que una corrida diaria. Nunca tiene en memoria más de 300.000 filas: si se llena, vuelca a bronze lo que tiene y sigue; si el CSV vuelve a traer filas de un tramo ya escrito en esta corrida, las agrega en vez de pisarlo.
+3. Después corre `dbt build` y `publicar_gold` **una vez**, para todo el rango.
+
+Sigue siendo idempotente: correr dos veces el mismo rango deja bronze igual, y una corrida diaria encima de un rango ya reprocesado no duplica (probado con un histórico simulado de 7.550 URLs, mezcladas y volcando cada 1.000 filas).
+
+**Límites:** el reproceso trae lo que URLhaus tiene **hoy** para esas fechas (si una URL se dio de baja en el origen, no vuelve); y la base completa pesa varios cientos de MB, así que el reproceso tarda bastante más que una corrida diaria.
