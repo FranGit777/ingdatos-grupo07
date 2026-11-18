@@ -15,7 +15,13 @@
                      'x86_64', 'i586', 'i686', 'amd64', 'arc', 'opendir', 'encrypted', 'geofenced',
                      'botnetdomain', 'dropper', 'downloader', 'loader', 'payload', 'malware',
                      'malicious', 'script', 'stealer', 'rat', 'trojan', 'hfs', 'censys',
-                     'unknown', 'none', 'null', 'nan'] -%}
+                     'unknown', 'none', 'null', 'nan',
+                     'malware-download', 'c2-monitor-auto', 'dll-sideloading'] -%}
+{#- Tags que son una IP (con puntos o guiones, a veces con puerto: 176-65-134-121-8080) o un
+    dominio (pw-dvx.to, o con guiones en lugar de puntos: bauble-cleverpondky-com). Indican de
+    dónde se descargaba el archivo, no qué malware es. -#}
+{%- set patron_ip = '^[0-9]{1,3}([.-][0-9]{1,3}){3}([.:-][0-9]{1,5})?$' -%}
+{%- set patron_dominio = '[.-](com|net|org|info|biz|xyz|top|site|online|space|shop|store|live|club|pw|to|cc|me|io|su|ru|cn|in|br|de|uk|us)$' -%}
 {#- Tags de dónde estaba alojado el archivo (servicio o plataforma), tampoco son una familia -#}
 {%- set hosting = ['github', 'gitlab', 'bitbucket', 'discord', 'dropbox', 'google-drive',
                    'googledrive', 'gdrive', 'onedrive', 'mediafire', 'mega', 'pastebin',
@@ -68,6 +74,8 @@ clasificados as (
                or lower(tag) in ('{{ genericos | join("', '") }}')
                or lower(tag) in ('{{ hosting | join("', '") }}')
                or regexp_matches(tag, '^[A-Z]{2,3}$')        -- códigos de país: CHN, USA, ...
+               or regexp_matches(tag, '{{ patron_ip }}')
+               or regexp_matches(lower(tag), '{{ patron_dominio }}')
                or lower(tag) like 'dropped-by%'
                or lower(tag) like 'ua-%'
              then null else tag end as familia
