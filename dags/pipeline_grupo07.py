@@ -156,17 +156,31 @@ def _extraer_bronze(env_file, inicio, fin):
     os.makedirs(os.path.dirname(archivo), exist_ok=True)
     if not os.path.exists(archivo) or time.time() - os.path.getmtime(archivo) > 6 * 3600:
         visible = url_csv.replace(clave, "<AUTH-KEY>")
-        print(f"Descargando {visible}")
-        # Los errores de requests incluyen la URL (con la clave): se re-lanzan sin ella
-        try:
-            with requests.get(url_csv, headers=cabecera, timeout=600, stream=True) as res:
-                if res.status_code != 200:
-                    raise RuntimeError(f"URLhaus respondió {res.status_code} al bajar {visible}")
-                with open(archivo + ".parcial", "wb") as f:
-                    for bloque in res.iter_content(1 << 20):
-                        f.write(bloque)
-        except requests.RequestException as e:
-            raise RuntimeError(f"Falló la descarga de {visible}: {type(e).__name__}") from None
+        # Fallas transitorias (timeout, corte de red, HTTP 429 o 5xx): se reintenta acá adentro,
+        # 3 intentos esperando 1 y 2 minutos. Fallas permanentes (401/403 clave inválida, 404/410
+        # endpoint retirado, otro 4xx): se corta en el acto; reintentar no lo arregla. Airflow
+        # no distingue una de otra, por eso la decisión se toma en la tarea.
+        # Los errores de requests incluyen la URL (con la clave): nunca se muestran.
+        intentos = 3
+        for intento in range(1, intentos + 1):
+            print(f"Descargando {visible} (intento {intento}/{intentos})")
+            try:
+                with requests.get(url_csv, headers=cabecera, timeout=600, stream=True) as res:
+                    if res.status_code == 200:
+                        with open(archivo + ".parcial", "wb") as f:
+                            for bloque in res.iter_content(1 << 20):
+                                f.write(bloque)
+                        break
+                    if res.status_code != 429 and res.status_code < 500:
+                        raise RuntimeError(f"URLhaus respondió {res.status_code} al bajar {visible}: "
+                                           "falla permanente (clave, endpoint o pedido), no se reintenta")
+                    motivo = f"HTTP {res.status_code}"
+            except requests.RequestException as e:
+                motivo = type(e).__name__
+            if intento == intentos:
+                raise RuntimeError(f"URLhaus no respondió bien en {intentos} intentos ({motivo}) al bajar {visible}")
+            print(f"  falló ({motivo}); reintento en {intento} min")
+            time.sleep(60 * intento)
         os.replace(archivo + ".parcial", archivo)
 
     # 3) Leer el CSV en streaming (la base completa es grande) y escribir en bronze por tandas
@@ -425,10 +439,17 @@ def _publicar_gold(env_file, dbt_run):
 
 
 # ---------------------------------------------------------------------------- DAG
+# Reintentos: para lo que puede resolverse solo (el worker se reinició, PostgreSQL o MinIO no
+# respondieron un rato). Todas las tareas son idempotentes, así que reintentar nunca duplica.
+# 2 reintentos con espera creciente (5 y 10 min) cubren una caída corta sin esconder un problema
+# real; más que eso solo demora el aviso. Cada tarea ajusta según qué falla puede tener.
 default_args = {
     "owner": "grupo07",
     "retries": 2,
-    "retry_delay": pendulum.duration(minutes=1),
+    "retry_delay": pendulum.duration(minutes=5),
+    "retry_exponential_backoff": True,
+    "max_retry_delay": pendulum.duration(minutes=30),
+    "execution_timeout": pendulum.duration(hours=1),   # una tarea colgada no bloquea el DAG
 }
 
 with DAG(
@@ -468,9 +489,12 @@ with DAG(
 
     comunes = dict(python=VENV_PY, expect_airflow=False)
 
+    # Credenciales mal no se arreglan reintentando: un solo reintento, por si el servidor se
+    # estaba reiniciando.
     validar_postgres = ExternalPythonOperator(
         task_id="validar_postgres", python_callable=_validar_postgres,
-        op_kwargs={"env_file": ENV_FILE}, retries=0, **comunes)
+        op_kwargs={"env_file": ENV_FILE}, retries=1,
+        retry_delay=pendulum.duration(minutes=2), **comunes)
 
     # El intervalo de cada corrida viaja como plantilla: Airflow la resuelve con las fechas de
     # ESA corrida (también en un backfill), y la tarea no mira el reloj para filtrar. Si se
@@ -480,12 +504,18 @@ with DAG(
         op_kwargs={"env_file": ENV_FILE,
                    "inicio": "{{ params.desde or data_interval_start.isoformat() }}",
                    "fin": "{{ params.hasta or data_interval_end.isoformat() }}"},
+        # Las fallas de URLhaus ya se reintentan adentro (3 intentos). Acá, un reintento más con
+        # 10 min de espera, por si la caída fue más larga o se cayó el worker.
+        retries=1, retry_delay=pendulum.duration(minutes=10),
+        execution_timeout=pendulum.duration(hours=2),       # el reproceso baja la base completa
         **comunes)
 
+    # Un test que falla es determinístico: volver a correrlo da lo mismo. Un solo reintento,
+    # por si falló la lectura de MinIO.
     dbt_build = ExternalPythonOperator(
         task_id="dbt_build", python_callable=_dbt_build,
         op_kwargs={"env_file": ENV_FILE, "dbt_src": DBT_SRC, "dbt_run": DBT_RUN, "venv": VENV},
-        **comunes)
+        retries=1, retry_delay=pendulum.duration(minutes=2), **comunes)
 
     publicar_gold = ExternalPythonOperator(
         task_id="publicar_gold", python_callable=_publicar_gold,
