@@ -1,6 +1,6 @@
 # Incidente 18/11/2026 — el backfill borró URLs de bronze
 
-**Estado:** causa corregida. Recuperación de datos en curso (ver *Recuperación*).
+**Estado:** resuelto el mismo día. No se perdió ninguna URL de las que había antes del backfill.
 
 ## Qué pasó
 
@@ -41,6 +41,18 @@ python scripts/recuperar_bronze.py _viejos/warehouse_antes_backfill.duckdb --apl
 ```
 
 Después, correr el DAG (sin parámetros) para recalcular silver y gold y republicar.
+
+**Resultado (18/11/2026):** se recuperaron 18.362 URLs; bronze quedó con 189.756. Los meses volvieron a sus valores previos, más lo que el backfill sí trajo de nuevo:
+
+| Mes | Antes del backfill | Después del backfill | Después de recuperar |
+|---|---:|---:|---:|
+| jun 2026 | 4.734 | 3.632 | 4.748 |
+| jul 2026 | 4.580 | 124 | 4.598 |
+| ago 2026 | 15.663 | 4.347 | 15.663 |
+| sep 2026 | 15.203 | 15.198 | 15.203 |
+| oct 2026 | 44.780 | 121.958 | 122.726 |
+
+**Lo que queda como limitación conocida:** antes de octubre de 2026 el histórico sigue incompleto (URLhaus registra unas 4.000 URLs por día, más de 100.000 por mes, y los meses anteriores tienen entre cientos y 15.000). No es un problema del pipeline: el origen ya no publica esas URLs, así que no hay de dónde traerlas. Desde octubre de 2026 la cobertura es completa y el DAG diario la mantiene.
 
 **Segundo tropiezo, durante la recuperación:** el primer intento del script falló sin escribir nada (un `merge` de Delta que falla no deja cambios a medias): en el servidor la columna `tags` de bronze es **texto** (`"Mozi,elf"`, como en el CSV de URLhaus), y el script y el DAG suponían una **lista**. En las pruebas no apareció porque ahí bronze se creaba desde cero con el esquema supuesto. Se corrigió en dos niveles: `tags` pasa a ser texto en todo el pipeline (es como lo publica la fuente; silver ya lo separaba), y el DAG, NB02 y el script **adaptan cada lote al esquema real de bronze** antes de escribir. El bronze de prueba del CI ahora usa el mismo esquema que producción.
 
