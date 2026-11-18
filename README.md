@@ -14,6 +14,7 @@ SILVER  stg_urlhaus                        1 fila por URL, tipada, deduplicada, 
    ▼
 GOLD    fct_familias_mensual               mes × tipo × familia × tipo de archivo
         fct_amenazas_mensual               mes × tipo (derivada de la anterior)
+        fct_features_familias              features por mes × familia (sin fuga temporal)
    ▼  publicar_gold (una transacción)
 PostgreSQL  warehouse.grupo07.*  ──▶  Metabase
 ```
