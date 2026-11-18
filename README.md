@@ -83,3 +83,12 @@ Fuente de los datos: URLhaus, abuse.ch (https://urlhaus.abuse.ch). Uso académic
 | dbt parse + build | Levanta un S3 descartable (moto), carga un bronze de prueba con la misma ruta y esquema que el DAG (`ci/bronze_de_prueba.py`) y corre `dbt parse` y `dbt build` con todos los tests |
 
 Si un job falla, el check queda en rojo y la protección de rama de `main` impide mergear el cambio.
+
+## Cómo trabajar con el repo
+
+- `main` está protegida: todo cambio entra por *pull request* y necesita el CI en verde.
+- En el JupyterHub, cerrar los notebooks antes de `git pull`. Si Jupyter pregunta *Overwrite / Revert*, elegir **Revert** (si no, pisa la versión nueva con la vieja).
+- `dags/`, `dbt/` y `docs/GOVERNANCE.md` los genera NB05: se editan sus celdas, no los archivos. Después de un `git pull`, correr NB05 para que Airflow tome los cambios.
+- Al reiniciar el Hub se pierde lo instalado con `pip`: correr la celda de instalación de cada notebook.
+- Las credenciales van en `dags/.env`, que nunca se commitea (ver `.env.example`).
+- Para regenerar el diagrama de linaje: `python scripts/linaje.py` (necesita graphviz).

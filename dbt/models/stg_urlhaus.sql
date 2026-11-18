@@ -18,7 +18,8 @@
                      'unknown', 'none', 'null', 'nan',
                      'malware-download', 'c2-monitor-auto', 'dll-sideloading',
                      'cowrie', 'honeypot', 'ssh', 'telnet', 'encoded',
-                     'botnet', 'iot', 'automated', 'java', 'docker', 'stego'] -%}
+                     'botnet', 'iot', 'automated', 'java', 'docker', 'stego',
+                     'macos', 'vscode', 'nodejs', 'windows', 'linux', 'android'] -%}
 {#- Tags que son una IP (con puntos o guiones, a veces con puerto: 176-65-134-121-8080) o un
     dominio (pw-dvx.to, o con guiones en lugar de puntos: bauble-cleverpondky-com). Indican de
     dónde se descargaba el archivo, no qué malware es. -#}
