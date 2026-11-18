@@ -7,7 +7,8 @@ ejercitar lo que limpia silver:
   * un id repetido (deduplicación por id),
   * la misma familia con distintas mayúsculas (Mozi / mozi),
   * tags genéricos, de hosting, de país, dropped-by-* y ua-* que NO son familia,
-  * URLs sin tags (sin_familia / desconocido).
+  * URLs sin tags (sin_familia / desconocido),
+  * meses sin ninguna URL (sep y oct 2025), como los huecos del histórico real.
 
 Uso: python ci/bronze_de_prueba.py
 """
@@ -36,6 +37,7 @@ def utc(texto):
 
 #        id    date_added             status     tags
 FILAS = [
+    (1000, "2025-08-15 09:00:00", "offline", ["AsyncRAT", "exe"]),  # después, 2 meses vacíos
     (1001, "2025-11-03 10:00:00", "online",  ["Mozi", "elf", "32-bit"]),
     (1002, "2025-11-04 11:30:00", "offline", ["mozi", "elf", "mips"]),      # misma familia, otra grafía
     (1003, "2025-11-20 08:15:00", "offline", ["Mozi", "sh"]),
