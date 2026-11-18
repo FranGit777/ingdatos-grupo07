@@ -49,7 +49,7 @@ FILAS = [
     (1008, "2026-01-10 09:00:00", "offline", ["ua-wget", "sh"]),            # no tiene familia
     (1009, "2026-01-11 17:20:00", "offline", None),                          # sin tags
     (1011, "2026-02-06 10:00:00", "online",  ["176-65-139-204", "elf", "mirai"]),  # la IP no es familia
-    (1012, "2026-02-06 11:00:00", "online",  ["pw-dvx.to", "exe"]),             # el dominio tampoco
+    (1012, "2026-02-06 11:00:00", "online",  ["pw-dvx.to", "cowrie", "ssh", "exe"]),  # ni el dominio ni el honeypot
     (1013, "2026-02-07 12:00:00", "offline", ["bauble-cleverpondky-com", "176-65-134-121-8080", "LuaJIT-loader"]),
     (1010, "2026-02-05 12:00:00", "online",  ["opendir", "mirai", "arm7"]),
     (1010, "2026-02-05 12:00:00", "online",  ["opendir", "mirai", "arm7"]),  # id repetido
