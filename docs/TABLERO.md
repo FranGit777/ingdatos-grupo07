@@ -8,7 +8,7 @@ En **https://metabase.nexoacademia.org**, base `warehouse`, esquema `grupo07`. E
 
 ## Cómo leer los números de octubre de 2026
 
-El indicador de URLs nuevas marca +707 % contra septiembre y el gráfico de evolución sube de golpe. **Es un pico real de campañas:** octubre tuvo casi 4.000 URLs por día contra unas 500 en agosto y septiembre, y el gráfico de familias por mes muestra de dónde salió (SmartLoader, SalatStealer, zapret, LuaJIT-loader). Noviembre vuelve a unas 1.100 por día. Por eso el gráfico de familias que sumaron y perdieron URLs muestra casi solo subas.
+El indicador de URLs nuevas marca +707 % contra septiembre y el gráfico de evolución sube de golpe. **Es un pico real de reportes:** octubre tuvo casi 4.000 URLs por día contra unas 500 en agosto y septiembre, y noviembre vuelve a unas 1.100. Coincide con un solo reportero, `wristhulk`, que desde el 29/09/2026 cargó 96.956 URLs (el 51 % del dataset). En el mismo período aparecen en masa las familias que muestra el gráfico 3 (SmartLoader, SalatStealer, zapret, LuaJIT-loader). Con estos datos no se puede separar cuánto es más malware y cuánto es más actividad de reporte. Por eso el gráfico de familias que sumaron y perdieron URLs muestra casi solo subas.
 
 Lo que sí es cobertura: antes de agosto de 2026 los meses tienen pocas URLs porque el export de URLhaus ya no las conserva (ver `INCIDENTE_2026-11-18_backfill.md`). El gráfico de evolución sirve para comparar los meses recientes, no para medir tendencias de largo plazo.
 
@@ -34,7 +34,7 @@ group by 1
 order by 1
 ```
 
-**2 · ¿Cómo evolucionó la cantidad de URLs nuevas por mes en el último año y medio?** — *Línea*, solo meses completos. Ojo al leerla: antes de agosto de 2026 el histórico está incompleto, porque URLhaus ya no publica esas URLs (ver `docs/INCIDENTE_2026-11-18_backfill.md`); el salto de septiembre a octubre es un pico real de campañas.
+**2 · ¿Cómo evolucionó la cantidad de URLs nuevas por mes en el último año y medio?** — *Línea*, solo meses completos. Ojo al leerla: antes de agosto de 2026 el histórico está incompleto, porque URLhaus ya no publica esas URLs (ver `docs/INCIDENTE_2026-11-18_backfill.md`); el salto de septiembre a octubre es un pico de reportes.
 ```sql
 select fecha as mes, sum(cantidad_amenazas) as urls_nuevas
 from grupo07.fct_features_familias

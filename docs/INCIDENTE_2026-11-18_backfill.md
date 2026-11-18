@@ -14,7 +14,7 @@ Para completar el histórico de bronze, que antes de julio de 2026 tenía pocas 
 | sep 2026 | 15.203 | 15.198 |
 | oct 2026 | 44.780 | 121.958 |
 
-Octubre se completó (casi 4.000 URLs por día; después se vio que fue un pico de campañas, no un mes típico); junio a agosto perdieron datos.
+Octubre se completó (casi 4.000 URLs por día; después se vio que fue un pico de reportes de un solo reportero, no un mes típico); junio a agosto perdieron datos.
 
 ## Causa
 

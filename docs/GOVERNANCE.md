@@ -44,7 +44,7 @@ Usamos dos accesos de URLhaus:
 | `fecha` | date | Primer día del mes en que URLhaus registró las URLs | `2026-10-01` |
 | `anio` | integer | Año de ese mes | `2026` |
 | `mes` | integer | Número de mes, 1 a 12 | `10` |
-| `tipo_amenaza` | text | Clasificación de URLhaus. En la práctica es siempre `malware_download` (la URL descarga malware); URLhaus no documenta qué otros valores puede tomar | `malware_download` |
+| `tipo_amenaza` | text | Clasificación de URLhaus. Casi siempre `malware_download` (la URL descarga malware); el 18/11/2026 aparecieron las 2 primeras `c2` (servidor de comando y control). URLhaus no documenta qué otros valores puede tomar | `malware_download` |
 | `familia_malware` | text | Familia de malware que distribuyen las URLs. Sale de las etiquetas que carga quien reporta, así que es aproximada. `sin_familia` si ninguna etiqueta la identifica | `LuaJIT-loader` |
 | `tipo_archivo` | text | Formato del archivo que se descarga: `elf` (ejecutable de Linux, típico de dispositivos IoT y routers), `exe` (Windows), `zip`, `sh` (script de Linux), etc. `desconocido` si no hay etiqueta de tipo de archivo | `zip` |
 | `cantidad_amenazas` | bigint | URLs maliciosas distintas registradas ese mes con esa familia y ese tipo de archivo. Cada URL cuenta una sola vez | `13755` |
@@ -73,7 +73,7 @@ Una fila por mes y familia, desde el primer mes en que aparece la familia. Los m
 Ningún valor de una fila usa información de meses posteriores (lo verifica un test que los recalcula desde cero).
 
 **Campos que no terminamos de entender:**
-- `tipo_amenaza`: URLhaus no documenta qué otros valores existen además de `malware_download`. Lo publicamos tal cual.
+- `tipo_amenaza`: URLhaus no documenta qué valores existen además de `malware_download`; el 18/11/2026 aparecieron 2 URLs con `c2`. Lo publicamos tal cual, así que un mes puede tener más de una fila en `fct_amenazas_mensual`.
 - El estado de una URL (`online`, `offline`, `unknown`, solo en silver): no está documentado cada cuánto URLhaus lo revisa. Lo interpretamos como "el último estado que vio URLhaus".
 
 ## 4. Clasificación de sensibilidad
@@ -105,7 +105,7 @@ Tres niveles: **Público** (ya es público en el origen), **Interno** (no es sec
 
 **Huecos conocidos.**
 - **El histórico anterior a agosto de 2026 está incompleto.** Los meses de 2018 a mayo de 2026 tienen entre unas pocas y unos cientos de URLs, y junio y julio unas 150 por día: son las que el origen todavía conserva, más las que fuimos acumulando. Agosto y septiembre (unas 500 por día) probablemente estén cerca de completos. No hay una fuente independiente para medir cuánto falta.
-- **Octubre de 2026 fue un pico real, no un efecto de cobertura:** casi 4.000 URLs por día, ocho veces agosto y septiembre, explicado por campañas puntuales (SmartLoader, SalatStealer, zapret, LuaJIT-loader); noviembre vuelve a unas 1.100 por día.
+- **Octubre de 2026 fue un pico de reportes, no un efecto de cobertura:** casi 4.000 URLs por día, ocho veces agosto y septiembre; noviembre vuelve a unas 1.100 por día. Coincide con un solo reportero, `wristhulk`, que desde el 29/09/2026 cargó 96.956 URLs, el 51 % de todo el dataset; en el mismo período aparecen en masa unas pocas familias (SmartLoader, SalatStealer, zapret, LuaJIT-loader). Con estos datos no se puede separar cuánto es más malware y cuánto es más gente reportando.
 - **El mes en curso está incompleto** (`mes_completo = false`).
 - **18.362 URLs, recuperadas el 18/11/2026 después de un reproceso que las había borrado** (ver `INCIDENTE_2026-11-18_backfill.md`), no tienen la fecha en que se las vio activas por última vez. Ese dato está solo en bronze y no se usa en gold.
 - Algunos meses viejos no tienen ninguna URL (por ejemplo, 2019-09 o 2021-02).
@@ -113,7 +113,7 @@ Tres niveles: **Público** (ya es público en el origen), **Interno** (no es sec
 **Lo que este dataset no permite responder.**
 - **El volumen real de amenazas antes de agosto de 2026,** ni tendencias de largo plazo: la cobertura cambia con el tiempo.
 - **Cuándo empezó un ataque:** la fecha es la del reporte, no la del ataque.
-- **El malware que nadie reportó a URLhaus.** El dataset refleja lo que reporta su comunidad, y algunos reporteros cargan miles de URLs en pocos días: un pico puede ser un reportero muy activo y no una campaña nueva.
+- **El malware que nadie reportó a URLhaus.** El dataset refleja lo que reporta su comunidad, y está muy concentrado: un solo reportero cargó la mitad de todas las URLs. Un pico puede ser un reportero muy activo y no más malware.
 - **A quién atacan:** no hay datos de víctimas, de países afectados ni de sectores.
 - **Rankings exactos de familias:** la familia es aproximada, porque depende de las etiquetas que pone cada reportero. Según el mes, entre el 10 % y un tercio de las URLs no tiene ninguna familia identificable (`sin_familia`).
 

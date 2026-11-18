@@ -29,7 +29,7 @@ Una fila de silver es **una URL maliciosa reportada a URLhaus**, una sola vez. E
 
 | Problema encontrado | Dónde lo vimos | Qué hace silver |
 |---|---|---|
-| `threat` vale `malware_download` en el 100 % de las filas: no sirve para distinguir amenazas | NB03, exploración | Deduce dos dimensiones nuevas de las etiquetas: **familia de malware** y **tipo de archivo** |
+| `threat` vale `malware_download` en prácticamente todas las filas (solo 2 con `c2`): no sirve para distinguir amenazas | NB03, exploración | Deduce dos dimensiones nuevas de las etiquetas: **familia de malware** y **tipo de archivo** |
 | Las etiquetas mezclan la familia con ruido: tipo de archivo (`elf`, `exe`), arquitectura (`32-bit`, `mips`), hosting (`github`, `discord`), país (`CHN`), `dropped-by-*`, `ua-*` | NB03 | La familia es la primera etiqueta que no es nada de eso |
 | Con datos reales aparecieron como "familias" IPs escritas con guiones (`176-65-139-204`, a veces con puerto), dominios (`pw-dvx.to`, `bauble-cleverpondky-com`), honeypots y protocolos (`cowrie`, `ssh`), términos genéricos (`botnet`, `iot`, `docker`, `malware-download`) y pedazos de hash (`d52f85`) | Tabla de features, al revisar las familias más activas de octubre | Se excluyen con dos patrones (IP y dominio), una lista de genéricos y un patrón de hash. Verificado contra los 30 nombres reales con guiones y contra 29 familias reales: ningún falso positivo |
 | La misma familia escrita distinto (`Mozi` / `mozi`, `Mirai` / `mirai`) | NB03 | Se unifica con la grafía más frecuente |

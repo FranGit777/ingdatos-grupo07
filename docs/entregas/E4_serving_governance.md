@@ -80,6 +80,6 @@ NB06 verifica lo publicado: que las tres tablas sumen lo mismo y tengan clave pr
    from grupo07.fct_familias_mensual
    group by 1 order by 2 desc limit 10;
    ```
-2. **El tablero,** diciendo en voz alta la pregunta de cada gráfico y la decisión que permite tomar. Contar también por qué octubre marca +707 %: fue un pico de campañas, y el gráfico de familias por mes muestra cuáles.
+2. **El tablero,** diciendo en voz alta la pregunta de cada gráfico y la decisión que permite tomar. Contar también por qué octubre marca +707 %: fue un pico de reportes (un solo reportero cargó el 51 % del dataset desde el 29/09), y en ese período aparecen en masa las familias que muestra el gráfico 3.
 3. **La tabla de features y su definición:** `dbt/models/fct_features_familias.sql` y el test `assert_features_sin_fuga`, explicando la fuga temporal.
 4. **La governance,** mostrando el diccionario y los huecos conocidos.
