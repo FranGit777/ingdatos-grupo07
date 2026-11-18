@@ -54,6 +54,13 @@ Cada corrida procesa solo su intervalo, nunca la fecha de hoy. Sin CLI en el ser
 
 Detalle y límites en [`docs/BACKFILL.md`](docs/BACKFILL.md).
 
+## Entregas
+
+| Entrega | Qué es | Documento |
+| --- | --- | --- |
+| E1 | Ingesta incremental e idempotente hacia bronze | [`docs/entregas/E1_ingesta.md`](docs/entregas/E1_ingesta.md) |
+| E2 | Transformación con dbt y calidad de datos | [`docs/entregas/E2_dbt.md`](docs/entregas/E2_dbt.md) |
+
 ## Documentación
 
 - [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md): identificación, origen y linaje, diccionario, sensibilidad, calidad y licencia.
