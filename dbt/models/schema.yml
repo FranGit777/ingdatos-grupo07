@@ -21,7 +21,7 @@ models:
       - name: estado
         description: "Si la URL seguía sirviendo malware la última vez que URLhaus la revisó: online, offline o unknown."
       - name: tipo_amenaza
-        description: "Clasificación de URLhaus (campo threat). En la práctica siempre es malware_download: por eso se deducen familia y tipo de archivo."
+        description: "Clasificación de URLhaus (campo threat). Casi siempre es malware_download (el 18/11/2026 aparecieron las 2 primeras con c2, servidor de comando y control): por eso se deducen familia y tipo de archivo."
       - name: familia_malware
         description: >
           Familia de malware que distribuye la URL (Mozi, mirai, LuaJIT-loader, ...): la primera
@@ -57,7 +57,7 @@ models:
               arguments:
                 values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
       - name: tipo_amenaza
-        description: "Clasificación de URLhaus (en la práctica, malware_download)."
+        description: "Clasificación de URLhaus: casi siempre malware_download; muy pocas c2."
         tests: [not_null]
       - name: cantidad_amenazas
         description: "URLs maliciosas distintas registradas en ese mes. Cada URL cuenta una sola vez."
@@ -81,7 +81,7 @@ models:
               arguments:
                 values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
       - name: tipo_amenaza
-        description: "Clasificación de URLhaus (en la práctica, malware_download)."
+        description: "Clasificación de URLhaus: casi siempre malware_download; muy pocas c2."
         tests: [not_null]
       - name: familia_malware
         description: "Familia de malware (ver stg_urlhaus). 'sin_familia' si no se pudo identificar."
