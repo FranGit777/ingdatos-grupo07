@@ -60,6 +60,7 @@ select
     end                                         as variacion_mensual_pct,
     round(promedio_movil_3m, 2)                 as promedio_movil_3m,
     cast(acumulado as bigint)                   as acumulado,
-    round(100.0 * cantidad_amenazas / total_mes, 2) as pct_del_mes,
+    -- Meses sin ninguna URL (huecos del histórico): 0 / 0 daría NaN, que DuckDB no trata como nulo
+    case when total_mes > 0 then round(100.0 * cantidad_amenazas / total_mes, 2) else 0 end as pct_del_mes,
     fecha < (select ultimo from limites)        as mes_completo
 from con_ventanas
