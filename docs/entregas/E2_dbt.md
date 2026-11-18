@@ -71,7 +71,7 @@ Si un test falla, `dbt build` termina con error, el DAG no publica y PostgreSQL 
 
 ## 5. Linaje
 
-`dbt docs generate --static` (sección 4 de NB04) arma el sitio con las descripciones y el grafo de linaje en `dbt/target/static_index.html`. Captura en [`docs/linaje.png`](../linaje.png).
+`dbt docs generate --static` (sección 4 de NB04) arma el sitio con las descripciones y el grafo de linaje en `dbt/target/static_index.html`. La versión estática está en [`docs/linaje.png`](../linaje.png), generada de los `ref()` de los modelos con `python scripts/linaje.py`.
 
 ## 6. Para la demo (10 minutos)
 

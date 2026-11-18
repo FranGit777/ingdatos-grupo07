@@ -31,9 +31,9 @@ Usamos dos accesos de URLhaus:
 4. **Features** (`fct_features_familias`): por mes y familia, el mes anterior, la variación, el promedio de 3 meses, el acumulado y la participación en el mes, usando siempre solo datos de ese mes o anteriores.
 5. **Publicación**: las tres tablas se copian a PostgreSQL en una sola operación (si algo falla, queda la versión anterior completa) y de ahí las lee Metabase.
 
-**Diagrama de linaje** generado por dbt (`dbt docs generate`), no dibujado a mano:
+**Diagrama de linaje**, generado de los `ref()` de los modelos dbt con `scripts/linaje.py`, no dibujado a mano (el grafo interactivo sale de `dbt docs generate --static`, sección 4 de NB04):
 
-![Linaje generado por dbt](linaje.png)
+![Linaje de los modelos dbt](linaje.png)
 
 ## 3. Diccionario de datos
 
