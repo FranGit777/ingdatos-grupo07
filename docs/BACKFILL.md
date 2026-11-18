@@ -31,6 +31,8 @@ No tenemos la CLI de Airflow en el servidor de la cátedra: todo se hace desde l
 
 **Un día puntual.** Poner la *Logical date* del día (por ejemplo `2025-03-15`) y dejar `desde` y `hasta` vacíos. La corrida procesa `[data_interval_start, data_interval_end)` de esa fecha. El log de `extraer_bronze` muestra `Intervalo a procesar: [...]` y cuántas URLs había.
 
+**Qué día procesa.** Una corrida procesa el intervalo que **termina** en su *Logical date*: la corrida de las 00:00 del 10/11 procesa todo el 9/11 (hora de Córdoba), el día que acaba de cerrar. Ensayado el 18/11/2026: *Logical date* `2026-11-10` → `Intervalo a procesar: [2026-11-09 03:00 UTC, 2026-11-10 03:00 UTC)`, 914 URLs. Para reprocesar el día X: *Logical date* X + 1, o `desde = X` y `hasta = X + 1`.
+
 **Un rango (meses o años).** Completar los parámetros `desde` (primer día, `AAAA-MM-DD`) y `hasta` (día siguiente al último, excluido). Por ejemplo `desde = 2018-01-01`, `hasta = 2026-11-01` reprocesa todo el histórico hasta octubre de 2026 **en una sola corrida**. El log lista cuántas URLs escribió por mes.
 
 ## ¿Qué pasa si hay que reprocesar dos años?
