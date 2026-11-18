@@ -8,7 +8,7 @@ Ingeniería de Datos — LCD · UCA Rosario · 2026 · grupo07
 | --- | --- |
 | Nombre | Amenazas URLhaus mensuales |
 | Tablas publicadas | `warehouse.grupo07.fct_familias_mensual` (gold atómica), `warehouse.grupo07.fct_amenazas_mensual` (gold agregada), `warehouse.grupo07.fct_features_familias` (features por mes y familia) |
-| Responsable | grupo07 (Ingeniería de Datos, LCD UCA Rosario 2026) |
+| Responsable | **Francisco Lauria** (grupo07, Ingeniería de Datos, LCD UCA Rosario 2026). Si un número está mal, abrir un *issue* en el repositorio o escribirle directamente. |
 | Propósito | Seguir la evolución mensual de URLs que distribuyen malware, por familia de malware y tipo de archivo, para priorizar detección y prevención |
 | Consumidores | Tablero "Amenazas URLhaus — grupo07" en Metabase |
 | Grano | `fct_familias_mensual`: una fila por (mes, tipo de amenaza, familia, tipo de archivo). `fct_amenazas_mensual`: una fila por (mes, tipo de amenaza) |
