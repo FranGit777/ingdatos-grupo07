@@ -61,13 +61,16 @@ Detalle y límites en [`docs/BACKFILL.md`](docs/BACKFILL.md).
 | E1 | Ingesta incremental e idempotente hacia bronze | [`docs/entregas/E1_ingesta.md`](docs/entregas/E1_ingesta.md) |
 | E2 | Transformación con dbt y calidad de datos | [`docs/entregas/E2_dbt.md`](docs/entregas/E2_dbt.md) |
 | E3 | Orquestación con Airflow e integración continua | [`docs/entregas/E3_airflow_ci.md`](docs/entregas/E3_airflow_ci.md) |
+| E4 | Serving, features y governance | [`docs/entregas/E4_serving_governance.md`](docs/entregas/E4_serving_governance.md) |
 
 ## Documentación
 
 - [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md): identificación, origen y linaje, diccionario, sensibilidad, calidad y licencia.
 - [`docs/BACKFILL.md`](docs/BACKFILL.md): cómo el DAG reprocesa el pasado sin duplicar.
+- [`docs/TABLERO.md`](docs/TABLERO.md): el tablero de Metabase, las preguntas que responde y su captura.
+- [`docs/INCIDENTE_2026-11-18_backfill.md`](docs/INCIDENTE_2026-11-18_backfill.md): el reproceso que borró datos, cómo se recuperaron y qué cambiamos.
 
-Fuente de los datos: URLhaus, abuse.ch (https://urlhaus.abuse.ch).
+Fuente de los datos: URLhaus, abuse.ch (https://urlhaus.abuse.ch). Uso académico y no comercial, según los [términos de abuse.ch](https://abuse.ch/terms-of-use/).
 
 ## Integración continua
 
