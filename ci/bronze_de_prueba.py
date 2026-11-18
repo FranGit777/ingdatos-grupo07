@@ -58,7 +58,7 @@ FILAS = [
 ESQUEMA = pa.schema([
     ("id", pa.int64()), ("date_added", pa.timestamp("us", tz="UTC")),
     ("url", pa.string()), ("url_status", pa.string()), ("last_online", pa.string()),
-    ("threat", pa.string()), ("tags", pa.list_(pa.string())),
+    ("threat", pa.string()), ("tags", pa.string()),   # texto, como en producción
     ("urlhaus_link", pa.string()), ("reporter", pa.string()),
 ])
 
@@ -69,7 +69,7 @@ tabla = pa.table({
     "url_status": [f[2] for f in FILAS],
     "last_online": [None] * len(FILAS),
     "threat": ["malware_download"] * len(FILAS),
-    "tags": [f[3] for f in FILAS],
+    "tags": [",".join(f[3]) if f[3] else None for f in FILAS],
     "urlhaus_link": [f"https://urlhaus.abuse.ch/url/{f[0]}/" for f in FILAS],
     "reporter": ["ci"] * len(FILAS),
 }, schema=ESQUEMA)
