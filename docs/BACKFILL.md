@@ -17,7 +17,9 @@ El reloj solo se usa para elegir cuál de los dos volcados descargar, porque el 
 
 ## Idempotencia
 
-1. `extraer_bronze` toma del CSV las URLs con `dateadded` en el intervalo y **reemplaza en bronze solo las filas de ese intervalo**: `write_deltalake(mode="overwrite", predicate="date_added >= inicio AND date_added < fin")`. Correr dos veces el mismo intervalo deja el mismo resultado, sin duplicados.
+1. `extraer_bronze` toma del CSV las URLs con `dateadded` en el intervalo y hace **upsert por `id`** en bronze (`merge`: la URL que ya estaba se actualiza, la nueva se agrega, **ninguna se borra**). Correr dos veces el mismo intervalo deja el mismo resultado, sin duplicados.
+
+   Antes se reemplazaba el intervalo (`overwrite` con `predicate`). Eso supone que el export trae todas las URLs de esas fechas, y no es así: el 18/11/2026 un reproceso de 2018 a hoy dejó a julio de 2026 con 124 URLs en lugar de 4.580. Ver [`INCIDENTE_2026-11-18_backfill.md`](INCIDENTE_2026-11-18_backfill.md).
 2. `dbt_build` recalcula silver y gold desde todo bronze.
 3. `publicar_gold` reemplaza las tablas de PostgreSQL en una transacción.
 
@@ -38,9 +40,9 @@ Con el backfill clásico de Airflow serían unas 730 corridas diarias. Cada una 
 Por eso el DAG acepta un **rango en una sola corrida**:
 
 1. Descarga `full.csv.zip` una vez.
-2. Lo lee en streaming y parte el rango en **tramos de un mes calendario**. Cada tramo reemplaza en bronze solo sus filas (`overwrite` con `predicate` por fecha), igual que una corrida diaria. Nunca tiene en memoria más de 300.000 filas: si se llena, vuelca a bronze lo que tiene y sigue; si el CSV vuelve a traer filas de un tramo ya escrito en esta corrida, las agrega en vez de pisarlo.
+2. Lo lee en streaming, agrupa las URLs por mes y hace el mismo upsert por `id` que una corrida diaria. Nunca tiene en memoria más de 300.000 filas: si se llena, vuelca a bronze lo que tiene y sigue.
 3. Después corre `dbt build` y `publicar_gold` **una vez**, para todo el rango.
 
-Sigue siendo idempotente: correr dos veces el mismo rango deja bronze igual, y una corrida diaria encima de un rango ya reprocesado no duplica (probado con un histórico simulado de 7.550 URLs, mezcladas y volcando cada 1.000 filas).
+Es idempotente y no pierde datos: correr dos veces el mismo rango deja bronze igual, una corrida diaria encima no duplica, y si el export dejó de traer URLs que ya teníamos, bronze las conserva (probado con un histórico simulado de 7.550 URLs, mezcladas, volcando cada 1.000 filas y con un segundo export al que le faltan 775 URLs).
 
-**Límites:** el reproceso trae lo que URLhaus tiene **hoy** para esas fechas (si una URL se dio de baja en el origen, no vuelve); y la base completa pesa varios cientos de MB, así que el reproceso tarda bastante más que una corrida diaria.
+**Límites:** el export `full.csv.zip` de URLhaus **no es un histórico completo**: trae casi todo el último mes y, de los meses anteriores, solo una parte. Un reproceso no puede recuperar lo que el origen ya no publica; solo completa lo que todavía está. Lo que se acumuló en bronze día a día es la mejor fuente para el pasado, y por eso bronze nunca borra.
