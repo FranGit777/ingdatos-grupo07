@@ -1,0 +1,12 @@
+# Dependencias de los notebooks (JupyterHub de la cátedra).
+# El servidor puede reiniciarse y perder lo instalado con pip: cada notebook las instala al principio.
+# El DAG no usa este archivo: arma su propio venv en /tmp/venv_grupo07 (tarea preparar_entorno).
+deltalake
+pyarrow
+pandas
+requests
+boto3
+duckdb>=1.5,<1.6
+dbt-duckdb
+sqlalchemy
+psycopg2-binary

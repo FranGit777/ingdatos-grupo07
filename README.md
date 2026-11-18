@@ -33,7 +33,7 @@ PostgreSQL  warehouse.grupo07.*  ──▶  Metabase
 
 ## Cómo correrlo (servidor de la cátedra)
 
-1. Clonar este repositorio en el JupyterHub del grupo (`/home/jovyan/work`).
+1. Clonar este repositorio en el JupyterHub del grupo (`/home/jovyan/work`). Las dependencias de los notebooks están en `requirements.txt` y cada notebook las instala en su segunda celda.
 2. Abrir `notebooks/NB05_semana10_airflow_dag.ipynb` y correrlo entero. La sección 4 escribe el DAG en `dags/`, copia `dbt/` a `dags/dbt/` y crea `dags/.env` con las variables del JupyterHub; pide la Auth-Key de URLhaus con `getpass`.
 3. En https://airflow.nexoacademia.org buscar `pipeline_grupo07`, activarlo y dispararlo con ▶ *Trigger DAG*.
 4. Verificar con la sección 5 de NB05, o en Metabase (*Nuevo → Consulta SQL*):
