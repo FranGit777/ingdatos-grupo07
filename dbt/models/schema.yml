@@ -2,55 +2,95 @@ version: 2
 
 models:
   - name: stg_urlhaus
-    description: "Capa Silver: Amenazas deduplicadas y tipadas de URLhaus."
+    description: >
+      Silver: una fila por URL maliciosa reportada a URLhaus (abuse.ch), sin duplicados, con los
+      tipos corregidos y con la familia de malware y el tipo de archivo deducidos de las etiquetas.
+      Lee directamente el bronze en MinIO (Delta Lake). Descarta filas sin id o sin fecha.
     columns:
       - name: id_amenaza
+        description: "Identificador que URLhaus le asigna a la URL. Es único y crece con el tiempo: una URL nueva siempre tiene un id mayor."
         tests:
           - not_null
           - unique
       - name: fecha_agregado
+        description: "Fecha y hora (UTC) en que la URL se cargó en URLhaus. No es cuándo empezó el ataque, sino cuándo alguien lo reportó."
         tests:
           - not_null
+      - name: url_maliciosa
+        description: "La URL que distribuye malware. Apunta a contenido activo: no abrir. Solo queda en bronze y silver; no se publica."
+      - name: estado
+        description: "Si la URL seguía sirviendo malware la última vez que URLhaus la revisó: online, offline o unknown."
+      - name: tipo_amenaza
+        description: "Clasificación de URLhaus (campo threat). En la práctica siempre es malware_download: por eso se deducen familia y tipo de archivo."
       - name: familia_malware
-        description: "Primer tag de URLhaus que nombra una familia de malware; 'sin_familia' si no hay."
+        description: >
+          Familia de malware que distribuye la URL (Mozi, mirai, LuaJIT-loader, ...): la primera
+          etiqueta que no es un tipo de archivo, una arquitectura, un hosting, un país, una IP, un
+          dominio ni un término genérico. Las mayúsculas se unifican con la grafía más frecuente.
+          'sin_familia' si ninguna etiqueta califica. Es aproximada: las etiquetas las carga cada
+          reportero sin un formato fijo.
         tests:
           - not_null
       - name: tipo_archivo
-        description: "Tipo de archivo según los tags (elf, exe, sh, ...); 'desconocido' si no hay."
+        description: "Formato del archivo que descarga la URL según las etiquetas (elf, exe, zip, sh, ...). 'desconocido' si no hay ninguna etiqueta de tipo de archivo."
         tests:
           - not_null
+      - name: etiquetas
+        description: "Etiquetas originales de URLhaus, separadas por comas, tal como las cargó quien reportó la URL."
+      - name: reportero
+        description: "Usuario de URLhaus que reportó la URL. Identifica a una persona o equipo: no se publica en gold."
 
   - name: fct_amenazas_mensual
-    description: "Capa Gold agregada: amenazas por mes y tipo, derivada de fct_familias_mensual. Consumido por BI."
+    description: >
+      Gold agregada: cuántas URLs maliciosas nuevas se registraron cada mes. Se calcula sumando
+      fct_familias_mensual, así que los totales de las dos tablas siempre coinciden. Responde
+      "¿sube o baja el volumen de URLs maliciosas mes a mes?".
     columns:
       - name: anio
+        description: "Año en que URLhaus registró las URLs."
         tests: [not_null]
       - name: mes
+        description: "Mes (1 a 12) en que URLhaus registró las URLs."
         tests:
           - not_null
           - accepted_values:
               arguments:
                 values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
       - name: tipo_amenaza
+        description: "Clasificación de URLhaus (en la práctica, malware_download)."
         tests: [not_null]
+      - name: cantidad_amenazas
+        description: "URLs maliciosas distintas registradas en ese mes. Cada URL cuenta una sola vez."
 
   - name: fct_familias_mensual
-    description: "Capa Gold atómica: amenazas por mes, tipo de amenaza, familia de malware y tipo de archivo. Consumido por BI."
+    description: >
+      Gold atómica: cuántas URLs maliciosas nuevas hubo cada mes, por familia de malware y por
+      tipo de archivo. Es el grano más fino que se publica. Responde "¿qué familias de malware
+      son las más activas y en qué formato se distribuyen, mes a mes?".
     columns:
       - name: fecha
+        description: "Primer día del mes calendario (para graficar series de tiempo)."
         tests: [not_null]
+      - name: anio
+        description: "Año del mes."
       - name: mes
+        description: "Mes (1 a 12)."
         tests:
           - not_null
           - accepted_values:
               arguments:
                 values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
       - name: tipo_amenaza
+        description: "Clasificación de URLhaus (en la práctica, malware_download)."
         tests: [not_null]
       - name: familia_malware
+        description: "Familia de malware (ver stg_urlhaus). 'sin_familia' si no se pudo identificar."
         tests: [not_null]
       - name: tipo_archivo
+        description: "Formato del archivo que se descarga (elf, exe, zip, ...). 'desconocido' si no se sabe."
         tests: [not_null]
+      - name: cantidad_amenazas
+        description: "URLs maliciosas distintas de esa familia y ese tipo de archivo registradas en el mes."
 
   - name: fct_features_familias
     description: >
