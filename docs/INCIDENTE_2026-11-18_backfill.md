@@ -42,8 +42,11 @@ python scripts/recuperar_bronze.py _viejos/warehouse_antes_backfill.duckdb --apl
 
 Después, correr el DAG (sin parámetros) para recalcular silver y gold y republicar.
 
+**Segundo tropiezo, durante la recuperación:** el primer intento del script falló sin escribir nada (un `merge` de Delta que falla no deja cambios a medias): en el servidor la columna `tags` de bronze es **texto** (`"Mozi,elf"`, como en el CSV de URLhaus), y el script y el DAG suponían una **lista**. En las pruebas no apareció porque ahí bronze se creaba desde cero con el esquema supuesto. Se corrigió en dos niveles: `tags` pasa a ser texto en todo el pipeline (es como lo publica la fuente; silver ya lo separaba), y el DAG, NB02 y el script **adaptan cada lote al esquema real de bronze** antes de escribir. El bronze de prueba del CI ahora usa el mismo esquema que producción.
+
 ## Qué aprendimos
 
+- Las pruebas tienen que usar el **mismo esquema que producción**: un bronze de prueba creado con el esquema que creemos tener no detecta las diferencias con el que realmente hay.
 - La capa cruda **acumula**: nunca se reemplaza con lo que trae la fuente hoy, porque la fuente puede olvidar.
 - Antes de un reproceso grande hay que medir qué trae la fuente para ese período, por ejemplo URLs por mes, y compararlo con lo que ya hay.
 - `vacuum` con retención 0 nos dejó sin red. Si dbt leyera la tabla Delta con `delta_scan` en vez de los `.parquet` sueltos, se podría conservar historia de versiones (pendiente).

@@ -177,7 +177,7 @@ def _extraer_bronze(env_file, inicio, fin):
     esquema = pa.schema([
         ("id", pa.int64()), ("date_added", pa.timestamp("us", tz="UTC")),
         ("url", pa.string()), ("url_status", pa.string()), ("last_online", pa.string()),
-        ("threat", pa.string()), ("tags", pa.list_(pa.string())),
+        ("threat", pa.string()), ("tags", pa.string()),
         ("urlhaus_link", pa.string()), ("reporter", pa.string()),
     ])
     texto_desde = desde.strftime("%Y-%m-%d %H:%M:%S")
@@ -187,7 +187,8 @@ def _extraer_bronze(env_file, inicio, fin):
         df = pd.DataFrame(filas, columns=columnas)
         df["id"] = df["id"].astype("int64")
         df["date_added"] = pd.to_datetime(df["date_added"], utc=True)
-        df["tags"] = df["tags"].map(lambda t: [x.strip() for x in t.split(",") if x.strip()] or None)
+        # tags como los publica URLhaus ("Mozi,elf"), sin espacios de más; silver los separa
+        df["tags"] = df["tags"].map(lambda t: ",".join(x.strip() for x in t.split(",") if x.strip()) or None)
         for col in ["url", "url_status", "last_online", "threat", "urlhaus_link", "reporter"]:
             df[col] = df[col].where(df[col].str.strip().ne("") & df[col].ne("None"), None)
         df = df.drop_duplicates(subset=["id"])
@@ -207,6 +208,11 @@ def _extraer_bronze(env_file, inicio, fin):
         #    reemplazar el intervalo borraría datos que ya teníamos: pasó el 18/11/2026, ver
         #    docs/INCIDENTE_2026-11-18_backfill.md. Correr dos veces lo mismo deja lo mismo.
         tabla = a_tabla(filas)
+        if existe[0]:
+            # Se adapta al esquema real de bronze (columna por columna) antes del merge, que
+            # exige tipos iguales en origen y destino.
+            destino = DeltaTable(bronze, storage_options=opciones).to_pyarrow_dataset().schema
+            tabla = tabla.select(destino.names).cast(destino)
         if not existe[0]:
             write_deltalake(bronze, tabla, mode="append", storage_options=opciones)
             existe[0] = True

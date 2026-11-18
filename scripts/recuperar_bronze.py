@@ -30,7 +30,7 @@ from entorno import BRONZE, STORAGE_OPTIONS  # noqa: E402
 ESQUEMA = pa.schema([
     ("id", pa.int64()), ("date_added", pa.timestamp("us", tz="UTC")),
     ("url", pa.string()), ("url_status", pa.string()), ("last_online", pa.string()),
-    ("threat", pa.string()), ("tags", pa.list_(pa.string())),
+    ("threat", pa.string()), ("tags", pa.string()),
     ("urlhaus_link", pa.string()), ("reporter", pa.string()),
 ])
 
@@ -50,10 +50,10 @@ silver = con.sql("""
         estado                                                         as url_status,
         cast(null as varchar)                                          as last_online,
         tipo_amenaza                                                   as threat,
-        -- etiquetas: '[Mozi, elf]' (lista pasada a texto) o 'Mozi,elf' -> lista
-        list_filter(list_transform(
+        -- etiquetas: '[Mozi, elf]' (lista pasada a texto) o 'Mozi,elf' -> 'Mozi,elf'
+        nullif(array_to_string(list_filter(list_transform(
             string_split(regexp_replace(coalesce(etiquetas, ''), '[\\[\\]''"]', '', 'g'), ','),
-            x -> trim(x)), x -> x <> '')                               as tags,
+            x -> trim(x)), x -> x <> ''), ','), '')                    as tags,
         'https://urlhaus.abuse.ch/url/' || id_amenaza || '/'           as urlhaus_link,
         reportero                                                      as reporter
     from stg_urlhaus
@@ -61,12 +61,13 @@ silver = con.sql("""
 con.close()
 if not isinstance(silver, pa.Table):          # duckdb >= 1.4 devuelve un RecordBatchReader
     silver = silver.read_all()
-tags = pc.if_else(pc.equal(pc.list_value_length(silver["tags"]), 0),
-                  pa.scalar(None, pa.list_(pa.string())), silver["tags"])
-silver = silver.set_column(silver.schema.get_field_index("tags"), "tags", tags).cast(ESQUEMA)
+silver = silver.cast(ESQUEMA)
 
-# 2) Cuáles faltan en bronze
+# 2) Cuáles faltan en bronze. Antes del merge se adapta al esquema real de bronze, columna
+#    por columna: el merge exige tipos iguales en origen y destino.
 dt = DeltaTable(BRONZE, storage_options=STORAGE_OPTIONS)
+destino = dt.to_pyarrow_dataset().schema
+silver = silver.select(destino.names).cast(destino)
 ids_bronze = dt.to_pyarrow_table(columns=["id"])["id"]
 faltan = silver.filter(pc.invert(pc.is_in(silver["id"], value_set=ids_bronze)))
 print(f"Silver de antes del backfill: {silver.num_rows} URLs · bronze hoy: {len(ids_bronze)} · faltan: {faltan.num_rows}")
