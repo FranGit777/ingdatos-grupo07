@@ -19,7 +19,7 @@ Cómo corre en el servidor de la cátedra (Airflow 2.x):
 
 Backfill: cada corrida procesa SOLO su intervalo [data_interval_start, data_interval_end).
   extraer_bronze baja el volcado CSV de URLhaus (últimos 30 días o base completa), filtra
-  las URLs registradas en ese intervalo y reemplaza en bronze solo esas filas. Correr dos
+  las URLs registradas en ese intervalo y hace upsert por id en bronze (no borra). Correr dos
   veces el mismo intervalo da el mismo resultado. dbt y publicar_gold recalculan todo
   desde bronze, así que también son idempotentes.
 
@@ -93,7 +93,8 @@ def _extraer_bronze(env_file, inicio, fin):
     """Ingesta URLhaus -> bronze (Delta) del intervalo [inicio, fin) que le pasa Airflow.
 
     Idempotente y apta para backfill: el resultado depende solo del intervalo, no de la
-    fecha en que corre. Reescribe en bronze únicamente las filas de ese intervalo.
+    fecha en que corre. Hace upsert por id: agrega las URLs nuevas, actualiza las que ya
+    estaban y no borra ninguna.
     """
     import csv
     import io
@@ -168,11 +169,9 @@ def _extraer_bronze(env_file, inicio, fin):
             raise RuntimeError(f"Falló la descarga de {visible}: {type(e).__name__}") from None
         os.replace(archivo + ".parcial", archivo)
 
-    # 3) Leer el CSV en streaming (la base completa es grande) y escribir en bronze por tramos.
-    #    Formato de URLhaus: líneas de comentario con '#', fechas 'YYYY-MM-DD HH:MM:SS' en UTC.
-    #    El intervalo se parte en tramos de un mes calendario: una corrida diaria es un solo
-    #    tramo; un reproceso de años son muchos tramos, y nunca se tiene en memoria más que
-    #    unas pocas cientos de miles de filas.
+    # 3) Leer el CSV en streaming (la base completa es grande) y escribir en bronze por tandas
+    #    mensuales. Formato de URLhaus: líneas de comentario con '#', fechas
+    #    'YYYY-MM-DD HH:MM:SS' en UTC. Nunca se tienen en memoria más de 300.000 filas.
     columnas = ['id', 'date_added', 'url', 'url_status', 'last_online',
                 'threat', 'tags', 'urlhaus_link', 'reporter']
     esquema = pa.schema([
@@ -183,13 +182,6 @@ def _extraer_bronze(env_file, inicio, fin):
     ])
     texto_desde = desde.strftime("%Y-%m-%d %H:%M:%S")
     texto_hasta = hasta.strftime("%Y-%m-%d %H:%M:%S")
-
-    def tramo_de(texto_fecha):
-        """Clave 'YYYY-MM' del tramo y sus límites [inicio, fin), recortados al intervalo."""
-        clave_mes = texto_fecha[:7]
-        ini = max(desde, pd.Timestamp(clave_mes + "-01", tz="UTC"))
-        fin = min(hasta, pd.Timestamp(clave_mes + "-01", tz="UTC") + pd.offsets.MonthBegin(1))
-        return clave_mes, ini, fin
 
     def a_tabla(filas):
         df = pd.DataFrame(filas, columns=columnas)
@@ -206,28 +198,25 @@ def _extraer_bronze(env_file, inicio, fin):
         existe = [True]
     except TableNotFoundError:
         existe = [False]
-    escritos = {}           # tramo -> filas escritas en esta corrida
+    escritos = {}           # mes -> URLs escritas en esta corrida
 
     def volcar(clave_mes, filas):
-        # 4) Reemplazar SOLO las filas del tramo: la primera vez que se escribe un tramo en esta
-        #    corrida se pisan sus filas en bronze (overwrite con predicate); si el CSV vuelve a
-        #    traer filas de ese mismo tramo más adelante, se agregan. Correr dos veces el mismo
-        #    intervalo deja exactamente lo mismo.
+        # 4) Upsert por id: la URL que ya está en bronze se actualiza (por ejemplo, su estado
+        #    online/offline), la nueva se agrega y NINGUNA se borra. El export de URLhaus no es un
+        #    histórico completo (de los meses viejos solo trae parte de las URLs), así que
+        #    reemplazar el intervalo borraría datos que ya teníamos: pasó el 18/11/2026, ver
+        #    docs/INCIDENTE_2026-11-18_backfill.md. Correr dos veces lo mismo deja lo mismo.
         tabla = a_tabla(filas)
-        _, ini, fin = tramo_de(clave_mes + "-01 00:00:00")
         if not existe[0]:
             write_deltalake(bronze, tabla, mode="append", storage_options=opciones)
             existe[0] = True
-        elif clave_mes not in escritos:
-            predicado = (f"date_added >= '{ini.strftime('%Y-%m-%dT%H:%M:%SZ')}' "
-                         f"AND date_added < '{fin.strftime('%Y-%m-%dT%H:%M:%SZ')}'")
-            # schema_mode="merge": columnas que en la ingesta vieja quedaron sin tipo (todo None)
-            # pasan a texto en vez de hacer fallar la escritura
-            write_deltalake(bronze, tabla, mode="overwrite", predicate=predicado,
-                            schema_mode="merge", storage_options=opciones)
         else:
-            write_deltalake(bronze, tabla, mode="append", schema_mode="merge",
-                            storage_options=opciones)
+            (DeltaTable(bronze, storage_options=opciones)
+             .merge(source=tabla, predicate="t.id = s.id", source_alias="s", target_alias="t",
+                    merge_schema=True)
+             .when_matched_update_all()
+             .when_not_matched_insert_all()
+             .execute())
         escritos[clave_mes] = escritos.get(clave_mes, 0) + tabla.num_rows
 
     if zipfile.is_zipfile(archivo):
@@ -258,11 +247,11 @@ def _extraer_bronze(env_file, inicio, fin):
         return 0
     for clave_mes in sorted(escritos):
         print(f"  {clave_mes}: {escritos[clave_mes]} URLs")
-    # stg_urlhaus lee los .parquet directamente: se borran los archivos que los reemplazos
-    # dejaron fuera de la tabla, para que dbt no lea versiones viejas.
+    # stg_urlhaus lee los .parquet directamente: se borran los archivos que el merge dejó
+    # fuera de la tabla, para que dbt no lea versiones viejas.
     DeltaTable(bronze, storage_options=opciones).vacuum(
         retention_hours=0, enforce_retention_duration=False, dry_run=False)
-    print(f"Bronze: {total} URLs del intervalo escritas en {len(escritos)} tramo(s) mensual(es).")
+    print(f"Bronze: {total} URLs del intervalo (upsert por id) en {len(escritos)} mes(es).")
     return total
 
 
