@@ -14,3 +14,6 @@ ingdatos:
         s3_region: "{{ env_var('AWS_REGION', 'us-east-1') }}"
         s3_use_ssl: "false"
         s3_url_style: "path"
+        # date_added viene en UTC: sin esto, cast(... as timestamp) usa la zona de la máquina
+        # y una URL del 1/12 00:00 UTC cae en noviembre si dbt corre con hora argentina.
+        TimeZone: "UTC"

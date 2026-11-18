@@ -83,6 +83,6 @@ jobs:
       - name: dbt parse (el SQL y el schema.yml compilan)
         working-directory: dbt
         run: dbt parse --profiles-dir .
-      - name: dbt build (modelos + 21 tests)
+      - name: dbt build (modelos + tests)
         working-directory: dbt
         run: dbt build --profiles-dir .
