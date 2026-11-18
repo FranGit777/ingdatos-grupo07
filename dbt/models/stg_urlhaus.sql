@@ -76,7 +76,6 @@ clasificados as (
                or lower(tag) in ('{{ genericos | join("', '") }}')
                or lower(tag) in ('{{ hosting | join("', '") }}')
                or regexp_matches(tag, '^[A-Z]{2,3}$')        -- códigos de país: CHN, USA, ...
-               or regexp_matches(tag, '{{ patron_ip }}')
                or regexp_matches(lower(tag), '{{ patron_dominio }}')
                or regexp_matches(lower(tag), '^[0-9a-f]{6,}$')   -- pedazos de hash (d52f85)
                or lower(tag) like 'dropped-by%'
