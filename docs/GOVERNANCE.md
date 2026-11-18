@@ -7,7 +7,7 @@ Ingeniería de Datos — LCD · UCA Rosario · 2026 · grupo07
 | Campo | Valor |
 | --- | --- |
 | Nombre | Amenazas URLhaus mensuales |
-| Tablas publicadas | `warehouse.grupo07.fct_familias_mensual` (gold atómica), `warehouse.grupo07.fct_amenazas_mensual` (gold agregada), `warehouse.grupo07.v_amenazas_features` (vista de features) |
+| Tablas publicadas | `warehouse.grupo07.fct_familias_mensual` (gold atómica), `warehouse.grupo07.fct_amenazas_mensual` (gold agregada), `warehouse.grupo07.fct_features_familias` (features por mes y familia) |
 | Responsable | grupo07 (Ingeniería de Datos, LCD UCA Rosario 2026) |
 | Propósito | Seguir la evolución mensual de URLs que distribuyen malware, por familia de malware y tipo de archivo, para priorizar detección y prevención |
 | Consumidores | Tablero "Amenazas URLhaus — grupo07" en Metabase |
@@ -23,8 +23,8 @@ Ingeniería de Datos — LCD · UCA Rosario · 2026 · grupo07
   2. dbt `stg_urlhaus` (silver) → tipado, deduplicado por id, y derivación de `familia_malware` y `tipo_archivo` a partir de los tags.
   3. dbt `fct_familias_mensual` (gold atómica) → conteo por mes, tipo de amenaza, familia y tipo de archivo.
   4. dbt `fct_amenazas_mensual` (gold agregada) → suma de la atómica por mes y tipo de amenaza.
-  5. `publicar_gold` → PostgreSQL (`warehouse.grupo07`), con reemplazo total en una sola transacción.
-  6. Vista `v_amenazas_features` (NB06) → Metabase.
+  5. dbt `fct_features_familias` (features) → por mes y familia: mes anterior, variación, promedio móvil de 3 meses, acumulado y participación, mirando solo hacia atrás.
+  6. `publicar_gold` → PostgreSQL (`warehouse.grupo07`), las tres tablas con reemplazo total en una sola transacción, y de ahí a Metabase.
 
 ## 3. Diccionario
 
@@ -45,7 +45,7 @@ Clave primaria: (`anio`, `mes`, `tipo_amenaza`, `familia_malware`, `tipo_archivo
 
 **`fct_amenazas_mensual`** (gold agregada): tiene `anio`, `mes`, `tipo_amenaza`, `cantidad_amenazas` y `actualizado_en`, con el mismo significado que arriba. Clave primaria: (`anio`, `mes`, `tipo_amenaza`).
 
-**`v_amenazas_features`** (vista): además de las columnas de la agregada, suma `fecha`, `total_mes`, `pct_del_mes`, `cantidad_mes_anterior`, `variacion_mensual_pct`, `acumulado_tipo` y `promedio_movil_3m`.
+**`fct_features_familias`** (features): una fila por (`fecha`, `familia_malware`), con `cantidad_amenazas`, `cantidad_mes_anterior`, `variacion_mensual_pct`, `promedio_movil_3m`, `acumulado`, `pct_del_mes` y `mes_completo`. Los meses sin URLs de una familia valen 0. Ningún valor usa meses posteriores al de la fila (test `assert_features_sin_fuga`).
 
 Cada columna también tiene su descripción como `COMMENT` en PostgreSQL, y Metabase la muestra.
 
@@ -69,7 +69,10 @@ Cada columna también tiene su descripción como `COMMENT` en PostgreSQL, y Meta
 | `assert_gold_cuadra` (test propio) | dbt, gold | Silver y las dos gold que no suman lo mismo |
 | Clave primaria y `check (mes between 1 and 12)` | PostgreSQL | Duplicados o meses inválidos al publicar |
 | No publicar una gold vacía y verificar el conteo | DAG `publicar_gold` | Publicaciones incompletas |
-| Reconciliación tabla = vista | NB06, sección 4 | Vista desincronizada |
+| `assert_features_sin_fuga` (test propio) | dbt, features | Un feature que usa meses posteriores (fuga temporal) |
+| `assert_features_consistentes` (test propio) | dbt, features | Grano duplicado, valores negativos o participación fuera de 0–100 % |
+| `assert_zona_horaria_utc` (test propio) | dbt | dbt corriendo fuera de UTC (correría URLs de fin de mes al mes anterior) |
+| Las tres tablas suman lo mismo | DAG `publicar_gold` y NB06 | Publicación incompleta o desincronizada |
 
 Si un test de dbt falla, `dbt_build` falla y `publicar_gold` no corre: PostgreSQL conserva la última versión buena.
 
