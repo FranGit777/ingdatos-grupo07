@@ -60,6 +60,7 @@ Detalle y límites en [`docs/BACKFILL.md`](docs/BACKFILL.md).
 | --- | --- | --- |
 | E1 | Ingesta incremental e idempotente hacia bronze | [`docs/entregas/E1_ingesta.md`](docs/entregas/E1_ingesta.md) |
 | E2 | Transformación con dbt y calidad de datos | [`docs/entregas/E2_dbt.md`](docs/entregas/E2_dbt.md) |
+| E3 | Orquestación con Airflow e integración continua | [`docs/entregas/E3_airflow_ci.md`](docs/entregas/E3_airflow_ci.md) |
 
 ## Documentación
 
