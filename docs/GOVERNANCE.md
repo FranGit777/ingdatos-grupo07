@@ -15,13 +15,13 @@ Ingeniería de Datos — LCD · UCA Rosario · 2026 · grupo07
 
 ## 2. Origen y linaje
 
-**Origen.** [URLhaus](https://urlhaus.abuse.ch) es un proyecto de abuse.ch (abuse.ch AG, Suiza), que opera en cooperación con Spamhaus. Investigadores y equipos de seguridad de todo el mundo reportan ahí URLs que están distribuyendo malware. Se actualiza en forma continua: del orden de 4.000 URLs nuevas por día. Se accede con una Auth-Key gratuita.
+**Origen.** [URLhaus](https://urlhaus.abuse.ch) es un proyecto de abuse.ch (abuse.ch AG, Suiza), que opera en cooperación con Spamhaus. Investigadores y equipos de seguridad de todo el mundo reportan ahí URLs que están distribuyendo malware. Se actualiza en forma continua: de cientos a miles de URLs nuevas por día según el período (unas 500 por día en agosto y septiembre de 2026, casi 4.000 en el pico de octubre). Se accede con una Auth-Key gratuita.
 
 Usamos dos accesos de URLhaus:
 - La **API** `/v1/urls/recent/` (las URLs de los últimos 3 días, máximo 1000), para la ingesta incremental de NB02.
 - Los **exports CSV** (`recent.csv`, los últimos 30 días, y `full.csv.zip`), para la ingesta diaria del DAG y para reprocesar el pasado.
 
-**Histórico y cobertura.** Hay datos desde junio de 2018, pero **solo están completos desde octubre de 2026**. URLhaus no conserva un histórico completo: su export trae casi todo el último mes y, de los meses anteriores, solo una parte de las URLs. Lo que acumulamos día a día no se pierde, pero lo que el origen ya no publica no se puede recuperar (ver *Huecos* en la sección 5).
+**Histórico y cobertura.** Hay datos desde junio de 2018, pero el histórico es **parcial**: el export de URLhaus conserva bien solo los últimos uno o dos meses (para septiembre de 2026 trajo prácticamente las mismas URLs que ya teníamos; para julio, 124 contra 4.580). Lo que acumulamos día a día no se pierde, pero lo que el origen ya no publica no se puede recuperar (ver *Huecos* en la sección 5).
 
 **Recorrido de los datos.**
 
@@ -104,13 +104,14 @@ Tres niveles: **Público** (ya es público en el origen), **Interno** (no es sec
 **Frescura.** Se actualiza una vez por día, a las 00:00 de Córdoba (03:00 UTC), con las URLs del día anterior. Una URL reportada hoy aparece mañana. `actualizado_en` dice cuándo fue la última publicación.
 
 **Huecos conocidos.**
-- **Antes de octubre de 2026 el histórico está incompleto.** URLhaus registra unas 4.000 URLs por día, más de 100.000 por mes. Los meses de 2018 a 2025 tienen entre unas pocas y unos cientos, y los de junio a septiembre de 2026, entre 4.600 y 15.700. Son las URLs que el origen todavía conserva, más las que fuimos acumulando. **El salto de septiembre a octubre de 2026 es de cobertura, no de amenazas.**
+- **El histórico anterior a agosto de 2026 está incompleto.** Los meses de 2018 a mayo de 2026 tienen entre unas pocas y unos cientos de URLs, y junio y julio unas 150 por día: son las que el origen todavía conserva, más las que fuimos acumulando. Agosto y septiembre (unas 500 por día) probablemente estén cerca de completos. No hay una fuente independiente para medir cuánto falta.
+- **Octubre de 2026 fue un pico real, no un efecto de cobertura:** casi 4.000 URLs por día, ocho veces agosto y septiembre, explicado por campañas puntuales (SmartLoader, SalatStealer, zapret, LuaJIT-loader); noviembre vuelve a unas 1.100 por día.
 - **El mes en curso está incompleto** (`mes_completo = false`).
 - **18.362 URLs, recuperadas el 18/11/2026 después de un reproceso que las había borrado** (ver `INCIDENTE_2026-11-18_backfill.md`), no tienen la fecha en que se las vio activas por última vez. Ese dato está solo en bronze y no se usa en gold.
 - Algunos meses viejos no tienen ninguna URL (por ejemplo, 2019-09 o 2021-02).
 
 **Lo que este dataset no permite responder.**
-- **El volumen real de amenazas antes de octubre de 2026,** ni tendencias de largo plazo: la cobertura cambia.
+- **El volumen real de amenazas antes de agosto de 2026,** ni tendencias de largo plazo: la cobertura cambia con el tiempo.
 - **Cuándo empezó un ataque:** la fecha es la del reporte, no la del ataque.
 - **El malware que nadie reportó a URLhaus.** El dataset refleja lo que reporta su comunidad, y algunos reporteros cargan miles de URLs en pocos días: un pico puede ser un reportero muy activo y no una campaña nueva.
 - **A quién atacan:** no hay datos de víctimas, de países afectados ni de sectores.
