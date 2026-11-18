@@ -521,4 +521,5 @@ with DAG(
         task_id="publicar_gold", python_callable=_publicar_gold,
         op_kwargs={"env_file": ENV_FILE, "dbt_run": DBT_RUN}, **comunes)
 
-    preparar_entorno >> [validar_postgres, extraer_bronze] >> dbt_build >> publicar_gold
+    preparar_entorno >> [validar_postgres, extraer_bronze]
+    extraer_bronze >> dbt_build >> publicar_gold
