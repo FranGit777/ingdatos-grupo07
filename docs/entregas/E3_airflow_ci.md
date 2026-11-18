@@ -77,4 +77,4 @@ Además, cada tarea tiene un límite de tiempo (`execution_timeout`: 1 hora, 2 p
 1. **El DAG en la interfaz:** vista *Graph* (las 5 tareas y sus dependencias) y *Grid* (el historial de corridas).
 2. **Una corrida** en verde, o el historial.
 3. **Backfill en vivo:** elegir un día en el momento, dispararlo con su *Logical date* y mostrar en el log de `extraer_bronze` que procesó ese día y no el de hoy.
-4. **CI en verde y en rojo:** un PR normal con los tres checks en verde, y el PR de demostración que rompe el DAG, con el check en rojo y el merge bloqueado.
+4. **CI en verde y en rojo:** un PR normal con los tres checks en verde, y el PR de demostración [#25](https://github.com/FranGit777/ingdatos-grupo07/pull/25) que rompe el DAG, con el check en rojo y el merge bloqueado.

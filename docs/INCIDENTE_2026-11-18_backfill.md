@@ -14,7 +14,7 @@ Para completar el histórico de bronze, que antes de julio de 2026 tenía pocas 
 | sep 2026 | 15.203 | 15.198 |
 | oct 2026 | 44.780 | 121.958 |
 
-Octubre se completó (≈ 4.000 URLs por día, lo esperable para URLhaus); junio a agosto perdieron datos.
+Octubre se completó (casi 4.000 URLs por día; después se vio que fue un pico de campañas, no un mes típico); junio a agosto perdieron datos.
 
 ## Causa
 
@@ -52,7 +52,7 @@ Después, correr el DAG (sin parámetros) para recalcular silver y gold y republ
 | sep 2026 | 15.203 | 15.198 | 15.203 |
 | oct 2026 | 44.780 | 121.958 | 122.726 |
 
-**Lo que queda como limitación conocida:** antes de octubre de 2026 el histórico sigue incompleto (URLhaus registra unas 4.000 URLs por día, más de 100.000 por mes, y los meses anteriores tienen entre cientos y 15.000). No es un problema del pipeline: el origen ya no publica esas URLs, así que no hay de dónde traerlas. Desde octubre de 2026 la cobertura es completa y el DAG diario la mantiene.
+**Lo que queda como limitación conocida:** el export de URLhaus conserva bien solo los últimos uno o dos meses, así que el histórico anterior a agosto de 2026 sigue incompleto (hasta mayo, entre decenas y cientos de URLs por mes; junio y julio, unas 150 por día). No es un problema del pipeline: el origen ya no publica esas URLs, así que no hay de dónde traerlas. Lo que el DAG acumula día a día ya no se pierde.
 
 **Segundo tropiezo, durante la recuperación:** el primer intento del script falló sin escribir nada (un `merge` de Delta que falla no deja cambios a medias): en el servidor la columna `tags` de bronze es **texto** (`"Mozi,elf"`, como en el CSV de URLhaus), y el script y el DAG suponían una **lista**. En las pruebas no apareció porque ahí bronze se creaba desde cero con el esquema supuesto. Se corrigió en dos niveles: `tags` pasa a ser texto en todo el pipeline (es como lo publica la fuente; silver ya lo separaba), y el DAG, NB02 y el script **adaptan cada lote al esquema real de bronze** antes de escribir. El bronze de prueba del CI ahora usa el mismo esquema que producción.
 

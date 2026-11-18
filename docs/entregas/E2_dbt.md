@@ -76,5 +76,5 @@ Si un test falla, `dbt build` termina con error, el DAG no publica y PostgreSQL 
 ## 6. Para la demo (10 minutos)
 
 1. **Build en verde:** NB04 sección 2 (o `dbt build` en la terminal): 4 modelos y 33 tests en PASS.
-2. **Un test fallando:** el pull request de demostración del repo saca el patrón de IPs de silver; el CI corre `dbt build` sobre el bronze de prueba y `assert_familia_no_es_tag_generico` falla porque `176-65-139-204` pasa a contarse como familia. El PR queda bloqueado.
+2. **Un test fallando:** el pull request de demostración [#24](https://github.com/FranGit777/ingdatos-grupo07/pull/24) saca el patrón de IPs de silver; el CI corre `dbt build` sobre el bronze de prueba y `assert_familia_no_es_tag_generico` falla porque `176-65-139-204` pasa a contarse como familia. El PR queda bloqueado.
 3. **Linaje:** abrir `static_index.html` y mostrar el grafo bronze → silver → gold → features.

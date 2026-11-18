@@ -8,7 +8,9 @@ En **https://metabase.nexoacademia.org**, base `warehouse`, esquema `grupo07`. E
 
 ## Cómo leer los números de octubre de 2026
 
-El indicador de URLs nuevas marca +707 % contra septiembre y el gráfico de evolución sube de golpe. **Eso es cobertura, no amenazas:** octubre es el primer mes completo en bronze; antes de octubre el origen solo conserva parte de las URLs (ver `INCIDENTE_2026-11-18_backfill.md`). Por la misma razón, el gráfico de familias que sumaron y perdieron URLs muestra casi solo subas. A partir de diciembre, cuando noviembre se compare contra un octubre también completo, las variaciones pasan a medir cambios reales.
+El indicador de URLs nuevas marca +707 % contra septiembre y el gráfico de evolución sube de golpe. **Es un pico real de campañas:** octubre tuvo casi 4.000 URLs por día contra unas 500 en agosto y septiembre, y el gráfico de familias por mes muestra de dónde salió (SmartLoader, SalatStealer, zapret, LuaJIT-loader). Noviembre vuelve a unas 1.100 por día. Por eso el gráfico de familias que sumaron y perdieron URLs muestra casi solo subas.
+
+Lo que sí es cobertura: antes de agosto de 2026 los meses tienen pocas URLs porque el export de URLhaus ya no las conserva (ver `INCIDENTE_2026-11-18_backfill.md`). El gráfico de evolución sirve para comparar los meses recientes, no para medir tendencias de largo plazo.
 
 ## Gráficos
 
@@ -32,7 +34,7 @@ group by 1
 order by 1
 ```
 
-**2 · ¿Cómo evolucionó la cantidad de URLs nuevas por mes en el último año y medio?** — *Línea*, solo meses completos. Ojo al leerla: antes de octubre de 2026 el histórico está incompleto, porque URLhaus ya no publica esas URLs (ver `docs/INCIDENTE_2026-11-18_backfill.md`); el salto de septiembre a octubre es de cobertura, no de amenazas.
+**2 · ¿Cómo evolucionó la cantidad de URLs nuevas por mes en el último año y medio?** — *Línea*, solo meses completos. Ojo al leerla: antes de agosto de 2026 el histórico está incompleto, porque URLhaus ya no publica esas URLs (ver `docs/INCIDENTE_2026-11-18_backfill.md`); el salto de septiembre a octubre es un pico real de campañas.
 ```sql
 select fecha as mes, sum(cantidad_amenazas) as urls_nuevas
 from grupo07.fct_features_familias
@@ -107,4 +109,4 @@ group by 1, 2 order by 1, 3 desc
 
 **Qué decisión se toma con esto:** un equipo de seguridad ve si el volumen sube (1 y 2), qué familias lo explican y si son campañas puntuales o actividad sostenida (3), qué familias ganaron o perdieron más actividad este mes (4), y qué formatos bloquear o inspeccionar para cada una (5: `elf` apunta a dispositivos Linux/IoT; `exe` o `zip`, a usuarios de Windows).
 
-**Para leer bien los datos:** la fecha es cuándo URLhaus *registró* la URL, no cuándo ocurrió el ataque; el mes en curso está incompleto (por eso los gráficos usan solo meses completos); antes de octubre de 2026 el histórico está incompleto porque el origen ya no publica esas URLs; la familia es aproximada, porque sale de los tags que carga cada reportero.
+**Para leer bien los datos:** la fecha es cuándo URLhaus *registró* la URL, no cuándo ocurrió el ataque; el mes en curso está incompleto (por eso los gráficos usan solo meses completos); antes de agosto de 2026 el histórico está incompleto porque el origen ya no publica esas URLs; la familia es aproximada, porque sale de los tags que carga cada reportero.
