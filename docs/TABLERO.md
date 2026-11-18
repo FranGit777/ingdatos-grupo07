@@ -1,0 +1,110 @@
+# Tablero "Amenazas URLhaus — grupo07"
+
+En **https://metabase.nexoacademia.org**, base `warehouse`, esquema `grupo07`. El tablero no se versiona en Metabase: este archivo y la captura son lo que viaja con el repo, para poder rehacerlo igual en la defensa.
+
+![Tablero](tablero.png)
+
+*Captura del 18/11/2026, después del backfill y la recuperación de bronze.*
+
+## Cómo leer los números de octubre de 2026
+
+El indicador de URLs nuevas marca +707 % contra septiembre y el gráfico de evolución sube de golpe. **Eso es cobertura, no amenazas:** octubre es el primer mes completo en bronze; antes de octubre el origen solo conserva parte de las URLs (ver `INCIDENTE_2026-11-18_backfill.md`). Por la misma razón, el gráfico de familias que sumaron y perdieron URLs muestra casi solo subas. A partir de diciembre, cuando noviembre se compare contra un octubre también completo, las variaciones pasan a medir cambios reales.
+
+## Gráficos
+
+Todos se arman con *Nuevo → Consulta SQL*, eligiendo la base **warehouse** arriba a la izquierda (no "Sample Database"). El título de cada gráfico es la pregunta que responde.
+
+**1 · ¿Cuántas URLs maliciosas nuevas se registraron el último mes completo, y cómo viene contra el anterior?** — visualización *Tendencia* (número grande con la variación)
+```sql
+select fecha as mes, sum(cantidad_amenazas) as urls_nuevas
+from grupo07.fct_features_familias
+where mes_completo
+group by 1 order by 1
+```
+
+**1b · ¿Cuántas familias distintas estuvieron activas el último mes completo?** — *Tendencia*, al lado del 1. Mide la diversidad de la amenaza: el volumen puede subir por una sola campaña grande o por muchas familias a la vez.
+```sql
+select fecha as mes,
+       count(*) filter (where cantidad_amenazas > 0 and familia_malware <> 'sin_familia') as familias_activas
+from grupo07.fct_features_familias
+where mes_completo
+group by 1
+order by 1
+```
+
+**2 · ¿Cómo evolucionó la cantidad de URLs nuevas por mes en el último año y medio?** — *Línea*, solo meses completos. Ojo al leerla: antes de octubre de 2026 el histórico está incompleto, porque URLhaus ya no publica esas URLs (ver `docs/INCIDENTE_2026-11-18_backfill.md`); el salto de septiembre a octubre es de cobertura, no de amenazas.
+```sql
+select fecha as mes, sum(cantidad_amenazas) as urls_nuevas
+from grupo07.fct_features_familias
+where mes_completo
+  and fecha >= (select max(fecha) from grupo07.fct_features_familias) - interval '18 months'
+group by 1
+order by 1
+```
+
+**3 · ¿Qué familias de malware explican el volumen de cada mes?** — *Barras apiladas* (eje X: mes; series: familia). Muestra las campañas: una familia que aparece fuerte un mes y desaparece.
+```sql
+with ult as (select max(fecha) as f from grupo07.fct_features_familias where mes_completo),
+ventana as (
+    select ff.* from grupo07.fct_features_familias ff, ult
+    where ff.fecha > ult.f - interval '6 months' and ff.fecha <= ult.f
+),
+top as (
+    select familia_malware from ventana where familia_malware <> 'sin_familia'
+    group by 1 order by sum(cantidad_amenazas) desc limit 6
+)
+select v.fecha as mes,
+       case when v.familia_malware in (select familia_malware from top) then v.familia_malware
+            when v.familia_malware = 'sin_familia' then 'sin familia identificada'
+            else 'otras familias' end as familia,
+       sum(v.cantidad_amenazas) as urls
+from ventana v
+group by 1, 2
+having sum(v.cantidad_amenazas) > 0
+order by 1, 3 desc
+```
+
+**4 · ¿Qué familias sumaron y perdieron más URLs respecto del mes anterior?** — *Barras horizontales* apiladas, con "Sumó" en verde y "Perdió" en rojo. Se mide en cantidad de URLs y no en porcentaje: muchas familias llegan por campañas y el mes anterior tienen 0, y sobre 0 no hay porcentaje posible (LuaJIT-loader pasó de 0 a 13.762).
+```sql
+with ult as (select max(fecha) as f from grupo07.fct_features_familias where mes_completo),
+base as (
+    select ff.familia_malware as familia,
+           ff.cantidad_amenazas - ff.cantidad_mes_anterior as diferencia
+    from grupo07.fct_features_familias ff, ult
+    where ff.fecha = ult.f and ff.familia_malware <> 'sin_familia'
+),
+r as (
+    select *, row_number() over (order by diferencia desc) as n_sube,
+              row_number() over (order by diferencia asc) as n_baja
+    from base
+)
+select familia,
+       case when diferencia >= 0 then diferencia end as "Sumó URLs",
+       case when diferencia <  0 then diferencia end as "Perdió URLs"
+from r
+where (n_sube <= 5 and diferencia > 0) or (n_baja <= 5 and diferencia < 0)
+order by diferencia desc
+```
+
+**5 · ¿Con qué tipo de archivo se distribuye cada familia?** — *Barras apiladas al 100 %* (una barra por familia; las 8 más activas de los últimos 6 meses)
+```sql
+with desde as (select max(fecha) - interval '6 months' as f from grupo07.fct_familias_mensual),
+top as (
+    select fm.familia_malware from grupo07.fct_familias_mensual fm, desde
+    where fm.familia_malware <> 'sin_familia' and fm.fecha > desde.f
+    group by 1 order by sum(fm.cantidad_amenazas) desc limit 8
+)
+select f.familia_malware as familia,
+       case when f.tipo_archivo = 'desconocido' then 'sin dato' else f.tipo_archivo end as tipo_de_archivo,
+       sum(f.cantidad_amenazas) as urls
+from grupo07.fct_familias_mensual f
+join top using (familia_malware), desde
+where f.fecha > desde.f
+group by 1, 2 order by 1, 3 desc
+```
+
+**Armado:** arriba, el 1 y el 1b lado a lado; al medio, el 2 a lo ancho; abajo, el 3 y el 4 lado a lado, y el 5 a lo ancho.
+
+**Qué decisión se toma con esto:** un equipo de seguridad ve si el volumen sube (1 y 2), qué familias lo explican y si son campañas puntuales o actividad sostenida (3), qué familias ganaron o perdieron más actividad este mes (4), y qué formatos bloquear o inspeccionar para cada una (5: `elf` apunta a dispositivos Linux/IoT; `exe` o `zip`, a usuarios de Windows).
+
+**Para leer bien los datos:** la fecha es cuándo URLhaus *registró* la URL, no cuándo ocurrió el ataque; el mes en curso está incompleto (por eso los gráficos usan solo meses completos); antes de octubre de 2026 el histórico está incompleto porque el origen ya no publica esas URLs; la familia es aproximada, porque sale de los tags que carga cada reportero.
