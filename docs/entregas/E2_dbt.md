@@ -52,7 +52,7 @@ Una fila de silver es **una URL maliciosa reportada a URLhaus**, una sola vez. E
 
 - **`fct_familias_mensual`** (gold atómica): URLs nuevas por mes × familia × tipo de archivo. Unas 2.000 filas contra las casi 190.000 de silver.
 - **`fct_amenazas_mensual`** (gold agregada): URLs nuevas por mes, para la pregunta "¿sube o baja el volumen?". Se calcula sumando la atómica, así que las dos nunca pueden contradecirse (diseño Kimball: un hecho atómico y un agregado derivado).
-- **`fct_amenazas_diarias`** (gold diaria): URLs nuevas por día, para seguir el mes en curso contra el mismo tramo del mes anterior sin esperar a que termine. Sale de silver y el test de cuadre verifica que sume lo mismo que las demás.
+- **`fct_amenazas_diarias`** (gold diaria): URLs nuevas por día, para seguir lo que entra día a día sin esperar a que cierre el mes. Sale de silver y el test de cuadre verifica que sume lo mismo que las demás.
 
 Las columnas están documentadas en `schema.yml`, en lenguaje de negocio, y se ven en `dbt docs` y como comentarios en PostgreSQL.
 

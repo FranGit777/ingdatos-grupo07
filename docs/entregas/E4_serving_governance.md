@@ -10,7 +10,7 @@ Con esta entrega los datos hacen el recorrido completo: URLhaus → bronze → s
 | --- | --- | --- |
 | `fct_familias_mensual` | mes × familia × tipo de archivo | Rankings de familias y tipos de archivo |
 | `fct_amenazas_mensual` | mes × tipo de amenaza | Volumen total por mes |
-| `fct_amenazas_diarias` | día | El mes en curso contra el mismo tramo del mes anterior |
+| `fct_amenazas_diarias` | día | Lo que entra día a día y lo que va del mes en curso |
 | `fct_features_familias` | mes × familia | Tendencia de cada familia (features) |
 
 **Es repetible: correrla dos veces deja lo mismo.** Las cuatro tablas se reemplazan (`TRUNCATE` + `INSERT`) dentro de **una sola transacción**: si algo falla en el medio, PostgreSQL vuelve a la versión anterior completa de las cuatro. Al terminar, verifica que cada tabla tenga las filas esperadas y que las cuatro sumen la misma cantidad de URLs; si no, la tarea falla y queda en rojo en Airflow. Cada tabla tiene **clave primaria** en su grano, así que una fila duplicada ni siquiera se puede insertar.
@@ -27,7 +27,7 @@ NB06 verifica lo publicado: que las cuatro tablas sumen lo mismo y tengan clave 
 
 ## 2. Tablero
 
-**"Amenazas URLhaus — grupo07"** en Metabase. Tiene 4 indicadores y 6 gráficos, y cada uno responde una pregunta. El detalle, las consultas y la captura están en [`docs/TABLERO.md`](../TABLERO.md).
+**"Amenazas URLhaus — grupo07"** en Metabase. Tiene 4 indicadores y 7 gráficos, y cada uno responde una pregunta. El detalle, las consultas y la captura están en [`docs/TABLERO.md`](../TABLERO.md).
 
 | Gráfico | Pregunta |
 | --- | --- |
@@ -38,8 +38,9 @@ NB06 verifica lo publicado: que las cuatro tablas sumen lo mismo y tengan clave 
 | Barras apiladas | ¿Qué familias explican el volumen de cada mes? |
 | Barras horizontales | ¿Qué familias sumaron y perdieron más URLs respecto del mes anterior? |
 | Barras al 100 % | ¿Con qué tipo de archivo se distribuye cada familia? |
-| Indicador | ¿Cómo viene el mes en curso contra el anterior, al mismo día? |
-| Línea | ¿Cómo se acumulan las URLs día a día, este mes contra el anterior? |
+| Indicador | ¿Cuántas URLs nuevas entraron en lo que va del mes? |
+| Barras | ¿Cuántas URLs nuevas entraron cada día, en los últimos 30 días? |
+| Barras horizontales | ¿Qué familias son las más activas en lo que va del mes? |
 
 **Qué decisión se toma con esto:** un equipo de seguridad ve si el volumen sube, qué familias lo explican y si son campañas puntuales o actividad sostenida, y qué formatos bloquear o inspeccionar para cada familia. Por ejemplo, `elf` apunta a dispositivos Linux e IoT, y `exe` o `zip`, a usuarios de Windows.
 

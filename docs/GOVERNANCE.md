@@ -27,7 +27,7 @@ Usamos dos accesos de URLhaus:
 
 1. **Bronze** (Delta Lake en MinIO, `s3://grupo07/bronze/series`): una fila por URL, tal como la publica URLhaus. Nunca se borra: cada carga agrega las URLs nuevas y actualiza las que ya estaban (por ejemplo, si pasaron de online a offline).
 2. **Silver** (`stg_urlhaus`): una fila por URL sin duplicados, con fechas en UTC, y con la familia de malware y el tipo de archivo deducidos de las etiquetas, descartando las que no son una familia (arquitecturas, servicios de hosting, países, IPs, dominios, honeypots, términos genéricos).
-3. **Gold** (`fct_familias_mensual`): cuenta las URLs por mes, familia y tipo de archivo. `fct_amenazas_mensual` es su total por mes, y `fct_amenazas_diarias` cuenta las URLs por día, para seguir el mes en curso.
+3. **Gold** (`fct_familias_mensual`): cuenta las URLs por mes, familia y tipo de archivo. `fct_amenazas_mensual` es su total por mes, y `fct_amenazas_diarias` cuenta las URLs por día, para seguir lo que entra día a día.
 4. **Features** (`fct_features_familias`): por mes y familia, el mes anterior, la variación, el promedio de 3 meses, el acumulado y la participación en el mes, usando siempre solo datos de ese mes o anteriores.
 5. **Publicación**: las cuatro tablas se copian a PostgreSQL en una sola operación (si algo falla, queda la versión anterior completa) y de ahí las lee Metabase.
 
@@ -62,7 +62,7 @@ Las mismas `anio`, `mes`, `tipo_amenaza`, `cantidad_amenazas` y `actualizado_en`
 | `cantidad_amenazas` | bigint | URLs maliciosas distintas registradas ese día | `914` |
 | `actualizado_en` | timestamptz | Cuándo el pipeline publicó la fila | `2026-11-19 19:40:00+00` |
 
-Suma lo mismo que las tablas mensuales. Sirve para comparar el mes en curso con el mismo tramo del mes anterior.
+Suma lo mismo que las tablas mensuales. Sirve para seguir lo que entra día a día y lo que va del mes en curso.
 
 ### `fct_features_familias` — Tendencia de cada familia
 

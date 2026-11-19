@@ -65,8 +65,8 @@ models:
   - name: fct_amenazas_diarias
     description: >
       Gold diaria: cuántas URLs maliciosas nuevas registró URLhaus cada día (en UTC). Permite seguir
-      el mes en curso mientras pasa y compararlo con el mismo tramo del mes anterior. Responde
-      "¿cómo viene este mes contra el anterior, al mismo día?".
+      lo que entra día a día y lo que va del mes en curso. Responde "¿cuántas URLs nuevas entran
+      por día?".
     columns:
       - name: fecha
         description: "Día (UTC) en que URLhaus registró las URLs. Solo aparecen días con al menos una URL."
