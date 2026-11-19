@@ -11,7 +11,7 @@ bronze (Delta, MinIO) ─▶ stg_urlhaus (silver) ─┬─▶ fct_familias_mens
 
 ## 1. Cómo correr el build desde cero
 
-En el JupyterHub, con el repo en `~/work` (ver [E1](E1_ingesta.md)) y bronze con datos:
+En el JupyterHub, con el repo en `~/work` (ver [E1](https://github.com/FranGit777/ingdatos-grupo07/blob/main/docs/entregas/E1_ingesta.md)) y bronze con datos:
 
 - **Desde el notebook:** abrir `notebooks/NB04_semana08_dbt_silver_gold.ipynb` y correr todo. Corre `dbt build` (modelos y tests), muestra silver contra gold y genera la documentación con el linaje.
 - **Desde la terminal:**
