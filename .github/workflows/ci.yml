@@ -78,6 +78,8 @@ jobs:
         run: |
           moto_server -p 9000 > /tmp/s3.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:9000/ > /dev/null && break; sleep 1; done
+      - name: Ingesta con columnas en otro orden, una nueva o una faltante
+        run: python ci/probar_columnas.py
       - name: Cargar bronze de prueba en el S3 (misma ruta y esquema que el DAG)
         run: python ci/bronze_de_prueba.py
       - name: dbt parse (el SQL y el schema.yml compilan)

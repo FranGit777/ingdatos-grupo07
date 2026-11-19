@@ -72,7 +72,7 @@ Además, cada tarea tiene un límite de tiempo (`execution_timeout`: 1 hora, 2 p
 |---|---|
 | Sin credenciales en el repo | Que no haya un `.env` versionado ni claves escritas en el código |
 | DAG importa en Airflow | Con Airflow 2.10.5: sintaxis de `dags/`, que el DAG importe sin errores, sus 5 tareas y dependencias, que tenga schedule y reintentos, que `extraer_bronze` reciba el intervalo de Airflow y que existan los parámetros del reproceso (`ci/verificar_dag.py`) |
-| dbt parse + build con bronze de prueba | Levanta un S3 descartable, carga un bronze de prueba con el mismo esquema y la misma ruta que producción (`ci/bronze_de_prueba.py`: un id repetido, Mozi/mozi, IPs, dominios, honeypots, meses sin URLs) y corre `dbt parse` (el SQL compila) y `dbt build` (4 modelos y 29 tests) |
+| dbt parse + build con bronze de prueba | Levanta un S3 descartable y corre la tarea real `extraer_bronze` contra tres exports de prueba (`ci/probar_columnas.py`): con las columnas en el orden de URLhaus, en otro orden con una columna nueva (bronze tiene que quedar idéntico) y con una columna faltante (tiene que fallar sin escribir). Después, carga un bronze de prueba con el mismo esquema y la misma ruta que producción (`ci/bronze_de_prueba.py`: un id repetido, Mozi/mozi, IPs, dominios, honeypots, meses sin URLs) y corre `dbt parse` (el SQL compila) y `dbt build` (4 modelos y 29 tests) |
 
 **Bloquea:** `main` está protegida. Todo cambio entra por pull request, los tres checks tienen que estar en verde para poder mergear, y la regla aplica también a los administradores. Un cambio que rompe el DAG o un test no entra.
 

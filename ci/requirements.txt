@@ -4,3 +4,5 @@ duckdb>=1.5,<1.6        # misma rama que el JupyterHub (1.5.5)
 deltalake>=0.25
 pyarrow>=17
 boto3>=1.34
+pandas>=2           # extraer_bronze del DAG (ci/probar_columnas.py)
+requests>=2.31

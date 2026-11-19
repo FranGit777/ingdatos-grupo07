@@ -246,13 +246,48 @@ def _extraer_bronze(env_file, inicio, fin):
         crudo = open(archivo, "rb")
     MAX_EN_MEMORIA = 300_000
     pendientes, en_memoria = {}, 0
+    # Las columnas se ubican por NOMBRE, con el encabezado del export ("# id,dateadded,url,...",
+    # o una primera fila con los nombres). Si URLhaus las cambia de orden o agrega una nueva, se
+    # lee igual; si falta alguna, se corta: cargar datos cruzados sería peor que no cargar.
+    alias = {"dateadded": "date_added", "urlhaus_reference": "urlhaus_link"}
+    encabezado = []
+
+    def sin_comentarios(lineas):
+        for l in lineas:
+            if l.startswith("#"):
+                campos = [c.strip().strip('"').lower() for c in l.lstrip("#").strip().split(",")]
+                if "id" in campos and len(campos) >= 5:
+                    encabezado[:] = [alias.get(c, c) for c in campos]
+            else:
+                yield l
+
+    posiciones = None
     with io.TextIOWrapper(crudo, encoding="utf-8", errors="replace", newline="") as lineas:
-        sin_comentarios = (l for l in lineas if not l.startswith("#"))
-        for r in csv.reader(sin_comentarios):
-            if len(r) < len(columnas) or not r[0].strip().isdigit():
+        for r in csv.reader(sin_comentarios(lineas)):
+            if posiciones is None:
+                nombres = {c.strip().lower() for c in r}
+                if "id" in nombres and nombres & {"dateadded", "date_added"}:   # encabezado como fila común
+                    encabezado[:] = [alias.get(c.strip().lower(), c.strip().lower()) for c in r]
+                    continue
+                if encabezado:
+                    faltan = [c for c in columnas if c not in encabezado]
+                    if faltan:
+                        raise RuntimeError(f"El export de URLhaus cambió de formato: faltan las columnas "
+                                           f"{faltan} (encabezado: {encabezado}). No se escribe nada.")
+                    posiciones = [encabezado.index(c) for c in columnas]
+                    if posiciones != list(range(len(columnas))):
+                        print(f"Columnas en otro orden o con agregados: se leen por nombre ({encabezado})")
+                else:
+                    print("El export no trae encabezado: se asume el orden estándar de URLhaus.")
+                    posiciones = list(range(len(columnas)))
+                ancho = max(posiciones) + 1
+            if len(r) < ancho:
+                continue
+            r = [r[i] for i in posiciones]
+            if not r[0].strip().isdigit():
                 continue
             if texto_desde <= r[1] < texto_hasta:
-                pendientes.setdefault(r[1][:7], []).append(r[:len(columnas)])
+                pendientes.setdefault(r[1][:7], []).append(r)
                 en_memoria += 1
                 if en_memoria >= MAX_EN_MEMORIA:
                     for clave_mes in sorted(pendientes):

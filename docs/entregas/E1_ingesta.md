@@ -57,6 +57,7 @@ Un solo punto habla con URLhaus (`pedir()`), y **verifica el código HTTP antes 
 | Responde 200 pero el cuerpo no es JSON, `query_status` no es `ok`/`no_results`, o faltan columnas | permanente | corta sin escribir nada en bronze |
 | Sigue fallando después de 3 intentos | transitoria agotada | corta con `FallaTransitoria` y no escribe nada |
 | Filas con `id` o fecha ilegibles | dato malo | se descartan esas filas y se informa cuántas |
+| Columnas en otro orden o una columna nueva | formato cambiado, sin pérdida | se leen por nombre, con el encabezado del export o de la API, y se avisa |
 
 En ningún caso un error del origen se escribe como si fueran datos: si algo falla, bronze queda como estaba.
 
