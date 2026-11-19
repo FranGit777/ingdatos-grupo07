@@ -4,7 +4,7 @@ En **https://metabase.nexoacademia.org**, base `warehouse`, esquema `grupo07`. E
 
 ![Tablero](tablero.png)
 
-*Captura del 19/11/2026, después de sacar los tags de plataforma de las familias.*
+*Captura del 19/11/2026, con el indicador de días sin actualizar.*
 
 ## Cómo leer los números de octubre de 2026
 
