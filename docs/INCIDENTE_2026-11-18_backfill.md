@@ -28,7 +28,7 @@ Lo habíamos anotado como límite en `BACKFILL.md` ("trae lo que URLhaus tiene h
 
 ## Corrección
 
-1. **Bronze ya no borra.** `extraer_bronze` hace upsert por `id` (`merge`): la URL que ya está se actualiza, la nueva se agrega, y la que el origen dejó de publicar se conserva. Sigue siendo idempotente. Probado con un segundo export al que le faltan 775 URLs: bronze no pierde ninguna y actualiza los estados que cambiaron.
+1. **Bronze ya no borra.** `extraer_bronze` hace upsert por `id` (`merge`): la URL que ya está se actualiza, la nueva se agrega, y la que el origen dejó de publicar se conserva. Sigue siendo idempotente.
 2. **Recuperación de lo borrado** con `scripts/recuperar_bronze.py`, a partir de la silver de una copia de `warehouse.duckdb` generada por NB04 a las 13:29, antes del backfill. Solo inserta las URLs que faltan en bronze; no toca las que ya están. Lo que no se puede recuperar desde silver: `last_online`, que queda vacío en esas filas.
 
 ## Recuperación
