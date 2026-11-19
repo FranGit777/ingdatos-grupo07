@@ -73,5 +73,3 @@ En el DAG (E3) el aviso es el de Airflow: la tarea queda en rojo, con el motivo 
 La Auth-Key nunca aparece en los mensajes: va dentro de la URL del export (así lo exige abuse.ch) y se reemplaza por `<AUTH-KEY>`; el texto de las excepciones de `requests`, que incluye la URL, no se muestra.
 
 La sección 6 de NB02 lo demuestra: corre la ingesta contra un endpoint que no existe, recibe 404, corta sin reintentar, avisa y lo registra, y bronze no cambia.
-
-Probado con un URLhaus simulado en 14 casos: primera corrida, incremental, idempotencia, hueco de 2000 URLs con la API llena (se completa con `recent.csv`), hueco de más de 30 días (base completa), API sin resultados, timeout + 503 + éxito, tres 502 seguidos, 401, 410 en el export, cuerpo no JSON, `query_status` desconocido y formato cambiado. En todos bronze queda sin duplicados y cada corrida queda en el registro.
