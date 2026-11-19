@@ -9,10 +9,10 @@ Con esta entrega los datos hacen el recorrido completo: URLhaus → bronze → s
 | Tabla | Grano | Para qué |
 | --- | --- | --- |
 | `fct_familias_mensual` | mes × familia × tipo de archivo | Rankings de familias y tipos de archivo |
-| `fct_amenazas_mensual` | mes | Volumen total por mes |
+| `fct_amenazas_mensual` | mes × tipo de amenaza | Volumen total por mes |
 | `fct_features_familias` | mes × familia | Tendencia de cada familia (features) |
 
-**Es repetible: correrla dos veces deja lo mismo.** Las tres tablas se reemplazan (`TRUNCATE` + `INSERT`) dentro de **una sola transacción**: si algo falla en el medio, PostgreSQL vuelve a la versión anterior completa de las tres. Al terminar, verifica que cada tabla tenga las filas esperadas y que las tres sumen la misma cantidad de URLs; si no, la tarea falla y queda en rojo en Airflow. Cada tabla tiene **clave primaria** en su grano, así que una fila duplicada ni siquiera se puede insertar. Lo probamos publicando dos veces seguidas contra un PostgreSQL 16 de prueba.
+**Es repetible: correrla dos veces deja lo mismo.** Las tres tablas se reemplazan (`TRUNCATE` + `INSERT`) dentro de **una sola transacción**: si algo falla en el medio, PostgreSQL vuelve a la versión anterior completa de las tres. Al terminar, verifica que cada tabla tenga las filas esperadas y que las tres sumen la misma cantidad de URLs; si no, la tarea falla y queda en rojo en Airflow. Cada tabla tiene **clave primaria** en su grano, así que una fila duplicada ni siquiera se puede insertar.
 
 No usamos `to_sql(if_exists="replace")` de pandas, porque hace `DROP TABLE` y se pierde la clave primaria, los comentarios de las columnas y cualquier vista que dependa de la tabla.
 
@@ -37,6 +37,8 @@ NB06 verifica lo publicado: que las tres tablas sumen lo mismo y tengan clave pr
 
 **Qué decisión se toma con esto:** un equipo de seguridad ve si el volumen sube, qué familias lo explican y si son campañas puntuales o actividad sostenida, y qué formatos bloquear o inspeccionar para cada familia. Por ejemplo, `elf` apunta a dispositivos Linux e IoT, y `exe` o `zip`, a usuarios de Windows.
 
+**Cómo leer octubre de 2026:** el indicador marca +707 % contra septiembre. Es un pico de reportes: un solo reportero, `wristhulk`, cargó el 51 % del dataset desde el 29/09, y en ese período aparecen en masa las familias que muestra el gráfico de volumen por familia (SmartLoader, SalatStealer, zapret, LuaJIT-loader). Con estos datos no se puede separar cuánto es más malware y cuánto es más actividad de reporte.
+
 **Carga rápido** porque cada gráfico lee tablas de unas pocas miles de filas, ya agregadas por dbt. Metabase no agrega casi nada.
 
 ## 3. Features
@@ -54,7 +56,7 @@ NB06 verifica lo publicado: que las tres tablas sumen lo mismo y tengan clave pr
 
 **Los meses sin actividad se completan con 0.** Por eso "el mes anterior" y "los últimos 3 meses" son siempre meses calendario, aunque la familia haya desaparecido un tiempo. Esto importa porque muchas familias llegan por campañas: LuaJIT-loader tuvo 4.623 URLs en junio, ninguna entre julio y septiembre, y 13.762 en octubre.
 
-**Sin fuga temporal.** Una fuga es usar, para calcular el feature de un mes, información que en ese mes todavía no existía. Por ejemplo, el promedio del año entero calculado para marzo. Acá todas las ventanas miran solo hacia atrás (`lag`, `rows between 2 preceding and current row`, `unbounded preceding`): el feature de marzo usa marzo, febrero y enero, nunca abril. El test **`assert_features_sin_fuga`** recalcula cada feature desde cero, filtrando explícitamente los datos hasta el mes del feature, y falla si no coincide. Lo probamos cambiando la ventana para que mirara un mes hacia adelante, y el test lo detectó en 13 filas.
+**Sin fuga temporal.** Una fuga es usar, para calcular el feature de un mes, información que en ese mes todavía no existía. Por ejemplo, el promedio del año entero calculado para marzo. Acá todas las ventanas miran solo hacia atrás (`lag`, `rows between 2 preceding and current row`, `unbounded preceding`): el feature de marzo usa marzo, febrero y enero, nunca abril. El test **`assert_features_sin_fuga`** recalcula cada feature desde cero, filtrando explícitamente los datos hasta el mes del feature, y falla si no coincide.
 
 **`pct_del_mes` y el mes en curso.** La participación usa el total del mismo mes, que se conoce recién cuando el mes termina. Para un mes cerrado no es fuga: es información que existe al cerrar el mes. Para el mes en curso, el valor cambia día a día. Por eso está la columna `mes_completo`, y los gráficos usan solo meses completos.
 
@@ -66,20 +68,8 @@ NB06 verifica lo publicado: que las tres tablas sumen lo mismo y tengan clave pr
 
 [`docs/GOVERNANCE.md`](../GOVERNANCE.md) tiene las seis secciones del taller:
 - identificación, con responsable con nombre,
-- origen y linaje, con el diagrama generado por dbt,
+- origen y linaje, con el diagrama generado de los `ref()` de los modelos dbt,
 - diccionario en lenguaje de negocio, con ejemplos y con los campos que no terminamos de entender,
 - clasificación de sensibilidad por campo, con fundamento,
 - calidad: verificaciones, frescura, huecos conocidos y lo que el dataset no permite responder,
 - licencia según los términos vigentes de abuse.ch.
-
-## 5. Para la demo (10 minutos)
-
-1. **La gold en PostgreSQL, consultada desde fuera de Python.** En Metabase, *Nuevo → Consulta SQL* sobre `warehouse`:
-   ```sql
-   select familia_malware, sum(cantidad_amenazas) as urls
-   from grupo07.fct_familias_mensual
-   group by 1 order by 2 desc limit 10;
-   ```
-2. **El tablero,** diciendo en voz alta la pregunta de cada gráfico y la decisión que permite tomar. Contar también por qué octubre marca +707 %: fue un pico de reportes (un solo reportero cargó el 51 % del dataset desde el 29/09), y en ese período aparecen en masa las familias que muestra el gráfico 3.
-3. **La tabla de features y su definición:** `dbt/models/fct_features_familias.sql` y el test `assert_features_sin_fuga`, explicando la fuga temporal.
-4. **La governance,** mostrando el diccionario y los huecos conocidos.
