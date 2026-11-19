@@ -119,35 +119,34 @@ where f.fecha > desde.f
 group by 1, 2 order by 1, 3 desc
 ```
 
-**6 · ¿Cómo viene el mes en curso contra el anterior, al mismo día?** — *Tendencia*. Compara las URLs del mes en curso hasta el último día con datos contra el mismo tramo del mes anterior (por ejemplo, del 1 al 19 de noviembre contra el 1 al 19 de octubre). Es la comparación justa: contra el mes anterior completo, el mes en curso siempre parecería bajar. Un dato nuevo se ve acá apenas el DAG lo publica. Cada fila lleva como fecha el último día incluido (por ejemplo 19/11 y 19/10), así Metabase muestra hasta qué día compara.
+**6 · ¿Cuántas URLs nuevas entraron en lo que va del mes?** — *Número*. Sube con cada corrida del DAG: es lo primero que cambia cuando entra un dato nuevo. El mes en curso está incompleto, así que no se compara con meses cerrados.
 ```sql
-with r as (
-    select date_trunc('month', max(fecha))::date as mes_actual,
-           extract(day from max(fecha))::int as dia_mes
-    from grupo07.fct_amenazas_diarias)
-select least(m.mes + r.dia_mes, (m.mes + interval '1 month')::date) - 1 as hasta_el_dia,
-       sum(d.cantidad_amenazas) as urls_del_mes_hasta_ese_dia
-from r
-cross join lateral (values (r.mes_actual), ((r.mes_actual - interval '1 month')::date)) as m(mes)
-join grupo07.fct_amenazas_diarias d
-  on d.fecha >= m.mes
- and d.fecha < least(m.mes + r.dia_mes, (m.mes + interval '1 month')::date)
-group by 1 order by 1
+select sum(cantidad_amenazas) as urls_en_lo_que_va_del_mes
+from grupo07.fct_amenazas_diarias
+where fecha >= (select date_trunc('month', max(fecha))::date from grupo07.fct_amenazas_diarias)
 ```
 
-**7 · ¿Cómo se acumulan las URLs día a día, este mes contra el anterior?** — *Línea* (eje X: `dia_del_mes`; series: `mes`). Muestra si el mes en curso va por encima o por debajo del anterior y desde qué día.
+**7 · ¿Cuántas URLs nuevas entraron cada día, en los últimos 30 días?** — *Barras* (eje X: `fecha`). Muestra el ritmo diario de reportes y los días con picos, que en los gráficos mensuales no se ven.
 ```sql
-with r as (select date_trunc('month', max(fecha))::date as mes_actual from grupo07.fct_amenazas_diarias)
-select extract(day from d.fecha)::int as dia_del_mes,
-       case when d.fecha >= r.mes_actual then 'Este mes' else 'Mes anterior' end as mes,
-       sum(d.cantidad_amenazas) over (partition by date_trunc('month', d.fecha) order by d.fecha) as urls_acumuladas
-from grupo07.fct_amenazas_diarias d cross join r
-where d.fecha >= r.mes_actual - interval '1 month'
-order by 1, 2
+select fecha, cantidad_amenazas as urls_nuevas
+from grupo07.fct_amenazas_diarias
+where fecha > (select max(fecha) from grupo07.fct_amenazas_diarias) - 30
+order by fecha
 ```
 
-**Armado:** arriba, el 0, el 1, el 1b y el 6 lado a lado; abajo de ellos, el 7 a lo ancho; al medio, el 2 a lo ancho; abajo, el 3 y el 4 lado a lado, y el 5 a lo ancho.
+**8 · ¿Qué familias son las más activas en lo que va del mes?** — *Barras horizontales* (Fila). El top 10 del mes en curso, sin `sin_familia`: muestra qué está circulando ahora, antes de que el mes cierre.
+```sql
+select familia_malware, sum(cantidad_amenazas) as urls
+from grupo07.fct_familias_mensual
+where fecha = (select max(fecha) from grupo07.fct_familias_mensual)
+  and familia_malware <> 'sin_familia'
+group by 1
+order by 2 desc
+limit 10
+```
+
+**Armado:** arriba, el 0, el 1, el 1b y el 6 lado a lado; abajo, el 7 a lo ancho y el 8 al lado; al medio, el 2 a lo ancho; abajo, el 3 y el 4 lado a lado, y el 5 a lo ancho.
 
 **Qué decisión se toma con esto:** un equipo de seguridad ve si el volumen sube (1 y 2), qué familias lo explican y si son campañas puntuales o actividad sostenida (3), qué familias ganaron o perdieron más actividad este mes (4), y qué formatos bloquear o inspeccionar para cada una (5: `elf` apunta a dispositivos Linux/IoT; `exe` o `zip`, a usuarios de Windows).
 
-**Para leer bien los datos:** la fecha es cuándo URLhaus *registró* la URL, no cuándo ocurrió el ataque; el mes en curso está incompleto (por eso los gráficos 1 a 5 usan solo meses completos, y el 6 y el 7 lo comparan contra el mismo tramo del mes anterior); antes de agosto de 2026 el histórico está incompleto porque el origen ya no publica esas URLs; la familia es aproximada, porque sale de los tags que carga cada reportero.
+**Para leer bien los datos:** la fecha es cuándo URLhaus *registró* la URL, no cuándo ocurrió el ataque; el mes en curso está incompleto (por eso los gráficos 1 a 5 usan solo meses completos; el 6, el 7 y el 8 muestran lo que va del mes, sin compararlo con meses cerrados); antes de agosto de 2026 el histórico está incompleto porque el origen ya no publica esas URLs; la familia es aproximada, porque sale de los tags que carga cada reportero.
