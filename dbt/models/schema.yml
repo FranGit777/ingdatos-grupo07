@@ -62,6 +62,19 @@ models:
       - name: cantidad_amenazas
         description: "URLs maliciosas distintas registradas en ese mes. Cada URL cuenta una sola vez."
 
+  - name: fct_amenazas_diarias
+    description: >
+      Gold diaria: cuántas URLs maliciosas nuevas registró URLhaus cada día (en UTC). Permite seguir
+      el mes en curso mientras pasa y compararlo con el mismo tramo del mes anterior. Responde
+      "¿cómo viene este mes contra el anterior, al mismo día?".
+    columns:
+      - name: fecha
+        description: "Día (UTC) en que URLhaus registró las URLs. Solo aparecen días con al menos una URL."
+        tests: [not_null, unique]
+      - name: cantidad_amenazas
+        description: "URLs maliciosas distintas registradas ese día. Cada URL cuenta una sola vez."
+        tests: [not_null]
+
   - name: fct_familias_mensual
     description: >
       Gold atómica: cuántas URLs maliciosas nuevas hubo cada mes, por familia de malware y por

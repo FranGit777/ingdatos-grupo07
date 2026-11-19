@@ -5,7 +5,8 @@ with totales as (
         (select count(*) from {{ ref('stg_urlhaus') }}) as silver,
         (select sum(cantidad_amenazas) from {{ ref('fct_amenazas_mensual') }}) as gold_tipo,
         (select sum(cantidad_amenazas) from {{ ref('fct_familias_mensual') }}) as gold_familia,
+        (select sum(cantidad_amenazas) from {{ ref('fct_amenazas_diarias') }}) as gold_dia,
         (select sum(cantidad_amenazas) from {{ ref('fct_features_familias') }}) as features
 )
 select * from totales
-where silver <> gold_tipo or silver <> gold_familia or silver <> features
+where silver <> gold_tipo or silver <> gold_familia or silver <> gold_dia or silver <> features

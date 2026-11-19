@@ -19,7 +19,7 @@ for sql in sorted(MODELOS.glob("*.sql")):
         aristas.append((padre, modelo))
     if "read_parquet" in texto:
         aristas.append(("bronze", modelo))
-# publicar_gold copia a PostgreSQL las tres tablas gold
+# publicar_gold copia a PostgreSQL las tablas gold
 for m in nodos:
     if m.startswith("fct_"):
         aristas.append((m, "postgres"))

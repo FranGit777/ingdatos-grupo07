@@ -119,8 +119,34 @@ where f.fecha > desde.f
 group by 1, 2 order by 1, 3 desc
 ```
 
-**Armado:** arriba, el 0, el 1 y el 1b lado a lado; al medio, el 2 a lo ancho; abajo, el 3 y el 4 lado a lado, y el 5 a lo ancho.
+**6 · ¿Cómo viene el mes en curso contra el anterior, al mismo día?** — *Tendencia*. Compara las URLs del mes en curso hasta el último día con datos contra el mismo tramo del mes anterior (por ejemplo, del 1 al 19 de noviembre contra el 1 al 19 de octubre). Es la comparación justa: contra el mes anterior completo, el mes en curso siempre parecería bajar. Un dato nuevo se ve acá apenas el DAG lo publica.
+```sql
+with r as (
+    select date_trunc('month', max(fecha))::date as mes_actual,
+           extract(day from max(fecha))::int as dia_mes
+    from grupo07.fct_amenazas_diarias)
+select m.mes, sum(d.cantidad_amenazas) as urls_al_mismo_dia
+from r
+cross join lateral (values (r.mes_actual), ((r.mes_actual - interval '1 month')::date)) as m(mes)
+join grupo07.fct_amenazas_diarias d
+  on d.fecha >= m.mes
+ and d.fecha < least(m.mes + r.dia_mes, (m.mes + interval '1 month')::date)
+group by 1 order by 1
+```
+
+**7 · ¿Cómo se acumulan las URLs día a día, este mes contra el anterior?** — *Línea* (eje X: `dia_del_mes`; series: `mes`). Muestra si el mes en curso va por encima o por debajo del anterior y desde qué día.
+```sql
+with r as (select date_trunc('month', max(fecha))::date as mes_actual from grupo07.fct_amenazas_diarias)
+select extract(day from d.fecha)::int as dia_del_mes,
+       case when d.fecha >= r.mes_actual then 'Este mes' else 'Mes anterior' end as mes,
+       sum(d.cantidad_amenazas) over (partition by date_trunc('month', d.fecha) order by d.fecha) as urls_acumuladas
+from grupo07.fct_amenazas_diarias d cross join r
+where d.fecha >= r.mes_actual - interval '1 month'
+order by 1, 2
+```
+
+**Armado:** arriba, el 0, el 1, el 1b y el 6 lado a lado; abajo de ellos, el 7 a lo ancho; al medio, el 2 a lo ancho; abajo, el 3 y el 4 lado a lado, y el 5 a lo ancho.
 
 **Qué decisión se toma con esto:** un equipo de seguridad ve si el volumen sube (1 y 2), qué familias lo explican y si son campañas puntuales o actividad sostenida (3), qué familias ganaron o perdieron más actividad este mes (4), y qué formatos bloquear o inspeccionar para cada una (5: `elf` apunta a dispositivos Linux/IoT; `exe` o `zip`, a usuarios de Windows).
 
-**Para leer bien los datos:** la fecha es cuándo URLhaus *registró* la URL, no cuándo ocurrió el ataque; el mes en curso está incompleto (por eso los gráficos usan solo meses completos); antes de agosto de 2026 el histórico está incompleto porque el origen ya no publica esas URLs; la familia es aproximada, porque sale de los tags que carga cada reportero.
+**Para leer bien los datos:** la fecha es cuándo URLhaus *registró* la URL, no cuándo ocurrió el ataque; el mes en curso está incompleto (por eso los gráficos 1 a 5 usan solo meses completos, y el 6 y el 7 lo comparan contra el mismo tramo del mes anterior); antes de agosto de 2026 el histórico está incompleto porque el origen ya no publica esas URLs; la familia es aproximada, porque sale de los tags que carga cada reportero.

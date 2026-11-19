@@ -368,6 +368,10 @@ def _publicar_gold(env_file, dbt_run, aceptar_caida="False"):
                          ("tipo_archivo", "text"), ("cantidad_amenazas", "bigint")],
             "clave": ["anio", "mes", "tipo_amenaza", "familia_malware", "tipo_archivo"],
         },
+        "fct_amenazas_diarias": {
+            "columnas": [("fecha", "date"), ("cantidad_amenazas", "bigint")],
+            "clave": ["fecha"],
+        },
         # Features (E4): definidos en dbt (fct_features_familias); acá solo se copian
         "fct_features_familias": {
             "columnas": [("fecha", "date"), ("anio", "integer"), ("mes", "integer"),
