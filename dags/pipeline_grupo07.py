@@ -303,8 +303,11 @@ def _dbt_build(env_file, dbt_src, dbt_run, venv):
         raise RuntimeError(f"dbt build terminó con código {r.returncode}")
 
 
-def _publicar_gold(env_file, dbt_run):
-    """Publica las tablas gold de DuckDB en PostgreSQL (lo que lee Metabase)."""
+def _publicar_gold(env_file, dbt_run, aceptar_caida="False"):
+    """Publica las tablas gold de DuckDB en PostgreSQL (lo que lee Metabase).
+
+    Antes de reemplazar nada, compara las URLs de cada mes con la última publicación: si un
+    mes perdió URLs, corta (control de volumen). aceptar_caida="True" publica igual."""
     import os
     import duckdb
     import psycopg2
@@ -390,6 +393,36 @@ def _publicar_gold(env_file, dbt_run):
                 if not fila:
                     raise RuntimeError("Sin permiso CREATE en ningún esquema de PostgreSQL.")
                 esquema = fila[0]
+
+            # Control de volumen. Bronze nunca borra, así que un mes ya publicado no puede
+            # tener menos URLs que antes. Si las tiene, algo se perdió en el camino (como en el
+            # reproceso del 18/11/2026, que dejó julio en 124 URLs en lugar de 4.580, con todos
+            # los tests en verde). Se corta acá, antes de tocar las tablas: el tablero sigue
+            # mostrando la última versión buena. Margen: hasta 10 URLs o el 1 % del mes.
+            cur.execute("select to_regclass(%s)", (f'"{esquema}".fct_amenazas_mensual',))
+            if cur.fetchone()[0] is not None:
+                cur.execute(f'select anio, mes, sum(cantidad_amenazas) '
+                            f'from "{esquema}".fct_amenazas_mensual group by 1, 2')
+                publicados = {(int(a), int(m)): int(n) for a, m, n in cur.fetchall()}
+                nuevos = {}
+                for anio, mes, _, n in datos["fct_amenazas_mensual"]:
+                    nuevos[(anio, mes)] = nuevos.get((anio, mes), 0) + int(n)
+                caidas = [(a, m, antes, nuevos.get((a, m), 0))
+                          for (a, m), antes in sorted(publicados.items())
+                          if antes - nuevos.get((a, m), 0) > max(10, antes * 0.01)]
+                if not caidas:
+                    print(f"Control de volumen OK: ningún mes bajó más de 10 URLs o del 1 % "
+                          f"({len(publicados)} meses comparados con la última publicación).")
+                else:
+                    detalle = "; ".join(f"{a}-{m:02d}: {antes} -> {ahora}" for a, m, antes, ahora in caidas)
+                    if str(aceptar_caida).strip().lower() != "true":
+                        raise RuntimeError(
+                            f"Control de volumen: {len(caidas)} mes(es) tienen menos URLs que en la última "
+                            f"publicación ({detalle}). No se publica nada. Revisar bronze; si la caída es "
+                            "esperada, volver a disparar el DAG con aceptar_caida = true.")
+                    print(f"⚠️  Control de volumen: bajan {len(caidas)} mes(es) ({detalle}). "
+                          "Se publica igual porque se pidió aceptar_caida.")
+
             for nombre, t in TABLAS.items():
                 tabla = f'"{esquema}".{nombre}'
                 columnas = ",\n".join(f"{c} {tipo}{'' if c in t.get('nulos', ()) else ' not null'}"
@@ -468,6 +501,8 @@ with DAG(
                        description="Reproceso: primer día a reprocesar (AAAA-MM-DD, UTC). Vacío = intervalo de la corrida."),
         "hasta": Param(None, type=["null", "string"],
                        description="Reproceso: día siguiente al último a reprocesar (AAAA-MM-DD, UTC, excluido)."),
+        "aceptar_caida": Param(False, type="boolean",
+                               description="Publicar aunque algún mes tenga menos URLs que en la última publicación."),
     },
 ) as dag:
 
@@ -517,8 +552,11 @@ with DAG(
         op_kwargs={"env_file": ENV_FILE, "dbt_src": DBT_SRC, "dbt_run": DBT_RUN, "venv": VENV},
         retries=1, retry_delay=pendulum.duration(minutes=2), **comunes)
 
+    # Si corta el control de volumen, reintentar da lo mismo; los reintentos son para una caída
+    # de PostgreSQL.
     publicar_gold = ExternalPythonOperator(
         task_id="publicar_gold", python_callable=_publicar_gold,
-        op_kwargs={"env_file": ENV_FILE, "dbt_run": DBT_RUN}, **comunes)
+        op_kwargs={"env_file": ENV_FILE, "dbt_run": DBT_RUN,
+                   "aceptar_caida": "{{ params.aceptar_caida }}"}, **comunes)
 
     preparar_entorno >> [validar_postgres, extraer_bronze] >> dbt_build >> publicar_gold

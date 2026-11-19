@@ -28,7 +28,7 @@ Airflow lo administra la cátedra en **https://airflow.nexoacademia.org** y lee 
 | `validar_postgres` | Se conecta a `warehouse` y verifica que el usuario pueda crear tablas | Detecta credenciales mal **antes** de bajar y transformar datos; corre en paralelo con la extracción porque no depende de ella |
 | `extraer_bronze` | Baja el export de URLhaus del intervalo de la corrida y hace upsert por `id` en bronze | Es la única que habla con el origen: si URLhaus se cae, se reintenta solo esto |
 | `dbt_build` | Copia `dags/dbt` a `/tmp` y corre `dbt build` (4 modelos + 29 tests) | Si un test falla, la corrida se corta acá y no se publica nada: PostgreSQL conserva la última versión buena |
-| `publicar_gold` | Copia las tres tablas gold de DuckDB a PostgreSQL en una transacción y verifica que sumen lo mismo | El destino de Metabase tiene sus propias fallas (conexión, permisos); separado, un problema del warehouse no obliga a volver a bajar ni transformar |
+| `publicar_gold` | Controla que ningún mes haya perdido URLs respecto de la última publicación; si pasa el control, copia las tres tablas gold de DuckDB a PostgreSQL en una transacción y verifica que sumen lo mismo | El destino de Metabase tiene sus propias fallas (conexión, permisos); separado, un problema del warehouse no obliga a volver a bajar ni transformar |
 
 Cada tarea hace una cosa, así se ve en el grafo dónde falló y se reintenta solo esa parte. **Nada pesado en el nivel superior del archivo:** al importarlo, el DAG solo define funciones y constantes; las credenciales se leen dentro de cada tarea, y por eso tampoco aparecen en *Rendered Template* de la interfaz.
 
@@ -55,6 +55,8 @@ La pregunta que guía cada número: ¿qué falla esperamos que el reintento resu
 | `dbt_build` | 1 | 2 min | Un test que falla da lo mismo al reintentarlo; el reintento es por si falló la lectura de MinIO |
 
 Además, cada tarea tiene un límite de tiempo (`execution_timeout`: 1 hora, 2 para `extraer_bronze`): una tarea colgada falla en vez de bloquear las corridas siguientes.
+
+**Control de volumen:** antes de publicar, `publicar_gold` compara las URLs de cada mes con lo que ya está en PostgreSQL. Como bronze nunca borra, un mes publicado no puede bajar: si baja más de 10 URLs o del 1 %, la tarea falla con los meses afectados en el log (por ejemplo `2026-07: 4600 -> 124`) y no toca las tablas. Es el control que faltaba en el reproceso del 18/11, que pasó los 29 tests con julio en 124 URLs. Si la caída es esperada, se vuelve a disparar con ▶ → *Trigger DAG w/ config* y `aceptar_caida = true`. Reintentar no lo arregla: los reintentos de la tarea son para una caída de PostgreSQL.
 
 **Si la corrida falla igual:** la tarea queda en rojo en el grafo, las siguientes no corren y el log de la tarea dice el motivo (por ejemplo `falla permanente (clave, endpoint o pedido), no se reintenta`). PostgreSQL y el tablero conservan la última versión buena. La vista *Grid* guarda el historial de corridas. Un aviso por correo o chat necesita un servidor de correo configurado en Airflow, que administra la cátedra.
 

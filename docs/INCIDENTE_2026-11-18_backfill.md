@@ -22,7 +22,7 @@ Octubre se completó (casi 4.000 URLs por día; después se vio que fue un pico 
 
 Lo habíamos anotado como límite en `BACKFILL.md` ("trae lo que URLhaus tiene hoy"), pero no se verificó con datos reales cuánto faltaba antes de correr el reproceso sobre todo el histórico.
 
-**Por qué los tests no lo detectaron:** verifican que los datos sean consistentes entre sí (sin duplicados, fechas válidas, silver y gold que cuadran), y lo eran. Ningún test compara la cantidad de URLs de un mes contra la corrida anterior.
+**Por qué los tests no lo detectaron:** verifican que los datos sean consistentes entre sí (sin duplicados, fechas válidas, silver y gold que cuadran), y lo eran. Ningún test comparaba la cantidad de URLs de un mes contra la corrida anterior (ahora lo hace el control de volumen, punto 3 de la corrección).
 
 **Por qué no se pudo volver atrás con Delta:** `extraer_bronze` hace `vacuum` con retención 0 después de escribir (para que dbt, que lee los `.parquet` directamente, no lea versiones viejas). Eso borra los archivos de las versiones anteriores, así que el *time travel* no tenía a dónde volver.
 
@@ -30,6 +30,7 @@ Lo habíamos anotado como límite en `BACKFILL.md` ("trae lo que URLhaus tiene h
 
 1. **Bronze ya no borra.** `extraer_bronze` hace upsert por `id` (`merge`): la URL que ya está se actualiza, la nueva se agrega, y la que el origen dejó de publicar se conserva. Sigue siendo idempotente.
 2. **Recuperación de lo borrado** con `scripts/recuperar_bronze.py`, a partir de la silver de una copia de `warehouse.duckdb` generada por NB04 a las 13:29, antes del backfill. Solo inserta las URLs que faltan en bronze; no toca las que ya están. Lo que no se puede recuperar desde silver: `last_online`, que queda vacío en esas filas.
+3. **Control de volumen al publicar.** `publicar_gold` compara las URLs de cada mes con la última publicación antes de reemplazar nada. Si un mes baja más de 10 URLs o del 1 %, la tarea falla y PostgreSQL conserva la versión anterior. Con este control, el reproceso del 18/11 habría cortado en julio (4.580 → 124) sin llegar al tablero. Si la caída es esperada, se vuelve a disparar el DAG con el parámetro `aceptar_caida`.
 
 ## Recuperación
 

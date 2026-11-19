@@ -45,6 +45,6 @@ Por eso el DAG acepta un **rango en una sola corrida**:
 2. Lo lee en streaming, agrupa las URLs por mes y hace el mismo upsert por `id` que una corrida diaria. Nunca tiene en memoria más de 300.000 filas: si se llena, vuelca a bronze lo que tiene y sigue.
 3. Después corre `dbt build` y `publicar_gold` **una vez**, para todo el rango.
 
-Es idempotente y no pierde datos: correr dos veces el mismo rango deja bronze igual, una corrida diaria encima no duplica, y si el export dejó de traer URLs que ya teníamos, bronze las conserva.
+Es idempotente y no pierde datos: correr dos veces el mismo rango deja bronze igual, una corrida diaria encima no duplica, y si el export dejó de traer URLs que ya teníamos, bronze las conserva. Además, `publicar_gold` no publica si algún mes quedó con menos URLs que en la última publicación (control de volumen); si la caída es esperada, se dispara con `aceptar_caida = true`.
 
 **Límites:** el export `full.csv.zip` de URLhaus **no es un histórico completo**: trae casi todo el último mes y, de los meses anteriores, solo una parte. Un reproceso no puede recuperar lo que el origen ya no publica; solo completa lo que todavía está. Lo que se acumuló en bronze día a día es la mejor fuente para el pasado, y por eso bronze nunca borra.
