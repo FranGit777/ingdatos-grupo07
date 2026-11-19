@@ -48,8 +48,8 @@ else:
         if "data_interval_start" not in kw.get("inicio", "") or "data_interval_end" not in kw.get("fin", ""):
             errores.append("extraer_bronze no recibe data_interval_start / data_interval_end")
     # reproceso de un rango en una sola corrida (docs/BACKFILL.md)
-    if not {"desde", "hasta"} <= set(dag.params.keys()):
-        errores.append("Faltan los parámetros desde/hasta del reproceso")
+    if not {"desde", "hasta", "aceptar_caida"} <= set(dag.params.keys()):
+        errores.append("Faltan los parámetros del DAG (desde/hasta del reproceso, aceptar_caida del control de volumen)")
 
 if errores:
     print("\n".join(f"❌ {e}" for e in errores))

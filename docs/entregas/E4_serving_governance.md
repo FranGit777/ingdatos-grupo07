@@ -14,6 +14,8 @@ Con esta entrega los datos hacen el recorrido completo: URLhaus → bronze → s
 
 **Es repetible: correrla dos veces deja lo mismo.** Las tres tablas se reemplazan (`TRUNCATE` + `INSERT`) dentro de **una sola transacción**: si algo falla en el medio, PostgreSQL vuelve a la versión anterior completa de las tres. Al terminar, verifica que cada tabla tenga las filas esperadas y que las tres sumen la misma cantidad de URLs; si no, la tarea falla y queda en rojo en Airflow. Cada tabla tiene **clave primaria** en su grano, así que una fila duplicada ni siquiera se puede insertar.
 
+**No publica una versión que perdió datos.** Antes de reemplazar las tablas compara las URLs de cada mes con la última publicación. Si un mes baja más de 10 URLs o del 1 %, la tarea falla, no toca nada y el tablero sigue mostrando la versión anterior (detalle en el README de E3).
+
 No usamos `to_sql(if_exists="replace")` de pandas, porque hace `DROP TABLE` y se pierde la clave primaria, los comentarios de las columnas y cualquier vista que dependa de la tabla.
 
 **Por qué mover la gold del lakehouse al warehouse:** DuckDB corre dentro de un proceso y lee archivos del lake. Sirve para transformar, pero no atiende a varios usuarios a la vez ni maneja permisos. PostgreSQL sí: Metabase se conecta con el usuario del grupo, solo ve el esquema `grupo07` y lee tablas chicas ya agregadas, que responden rápido. El tablero nunca lee del lake.
