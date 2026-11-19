@@ -371,12 +371,33 @@ def _publicar_gold(env_file, dbt_run, aceptar_caida="False"):
             if nodo.get("resource_type") == "model" and nodo["name"] in TABLAS:
                 docs[nodo["name"]] = nodo
 
+    def conectar():
+        return psycopg2.connect(host=os.environ.get("PGHOST", "postgres"),
+                                port=os.environ.get("PGPORT", "5432"),
+                                dbname=os.environ.get("PGDATABASE", "warehouse"),
+                                user=os.environ["PGUSER"], password=os.environ["PGPASSWORD"],
+                                connect_timeout=10)
+
+    def registrar_estado(esquema, resultado, detalle, urls=None):
+        """Una fila por publicación en estado_publicacion, que muestra el tablero. Va en una
+        conexión aparte: si la publicación se frena, su transacción se deshace pero el aviso queda."""
+        con = conectar()
+        try:
+            with con, con.cursor() as c:
+                c.execute(f"""
+                    create table if not exists "{esquema}".estado_publicacion (
+                        publicado_en timestamptz not null default now(),
+                        resultado text not null, detalle text, urls_publicadas bigint)""")
+                c.execute(f'comment on table "{esquema}".estado_publicacion is %s',
+                          ("Una fila por corrida de publicar_gold: si publicó, si la frenó el control "
+                           "de volumen y por qué. La última fila dice si el tablero está al día.",))
+                c.execute(f'insert into "{esquema}".estado_publicacion (resultado, detalle, urls_publicadas) '
+                          'values (%s, %s, %s)', (resultado, detalle, urls))
+        finally:
+            con.close()
+
     # 2) Escribir en PostgreSQL en UNA transacción: si algo falla, quedan las versiones anteriores
-    pg = psycopg2.connect(host=os.environ.get("PGHOST", "postgres"),
-                          port=os.environ.get("PGPORT", "5432"),
-                          dbname=os.environ.get("PGDATABASE", "warehouse"),
-                          user=os.environ["PGUSER"], password=os.environ["PGPASSWORD"],
-                          connect_timeout=10)
+    pg = conectar()
     resultado = {}
     try:
         with pg, pg.cursor() as cur:
@@ -399,6 +420,7 @@ def _publicar_gold(env_file, dbt_run, aceptar_caida="False"):
             # reproceso del 18/11/2026, que dejó julio en 124 URLs en lugar de 4.580, con todos
             # los tests en verde). Se corta acá, antes de tocar las tablas: el tablero sigue
             # mostrando la última versión buena. Margen: hasta 10 URLs o el 1 % del mes.
+            aviso = None
             cur.execute("select to_regclass(%s)", (f'"{esquema}".fct_amenazas_mensual',))
             if cur.fetchone()[0] is not None:
                 cur.execute(f'select anio, mes, sum(cantidad_amenazas) '
@@ -416,12 +438,16 @@ def _publicar_gold(env_file, dbt_run, aceptar_caida="False"):
                 else:
                     detalle = "; ".join(f"{a}-{m:02d}: {antes} -> {ahora}" for a, m, antes, ahora in caidas)
                     if str(aceptar_caida).strip().lower() != "true":
+                        registrar_estado(esquema, "frenada por control de volumen",
+                                         f"Meses con menos URLs que en la publicación anterior: {detalle}. "
+                                         "El tablero muestra la última versión buena.")
                         raise RuntimeError(
                             f"Control de volumen: {len(caidas)} mes(es) tienen menos URLs que en la última "
                             f"publicación ({detalle}). No se publica nada. Revisar bronze; si la caída es "
                             "esperada, volver a disparar el DAG con aceptar_caida = true.")
                     print(f"⚠️  Control de volumen: bajan {len(caidas)} mes(es) ({detalle}). "
                           "Se publica igual porque se pidió aceptar_caida.")
+                    aviso = f"Publicada con caída aceptada: {detalle}"
 
             for nombre, t in TABLAS.items():
                 tabla = f'"{esquema}".{nombre}'
@@ -468,6 +494,7 @@ def _publicar_gold(env_file, dbt_run, aceptar_caida="False"):
     totales = {total for n, total in resultado.values()}
     if len(totales) != 1:
         raise RuntimeError(f"Las tablas gold no suman lo mismo: {resultado}")
+    registrar_estado(esquema, "publicada", aviso, int(totales.pop()))
     return sum(n for n, _ in resultado.values())
 
 

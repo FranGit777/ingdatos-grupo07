@@ -101,7 +101,7 @@ Tres niveles: **Público** (ya es público en el origen), **Interno** (no es sec
 - Ningún feature usa meses posteriores. Las participaciones están entre 0 % y 100 %, y no hay mes y familia repetidos.
 - En PostgreSQL, claves primarias y meses entre 1 y 12. Además, las tres tablas tienen que sumar lo mismo para que la publicación se confirme.
 
-**Frescura.** Se actualiza una vez por día, a las 00:00 de Córdoba (03:00 UTC), con las URLs del día anterior. Una URL reportada hoy aparece mañana. `actualizado_en` dice cuándo fue la última publicación.
+**Frescura.** Se actualiza una vez por día, a las 00:00 de Córdoba (03:00 UTC), con las URLs del día anterior. Una URL reportada hoy aparece mañana. `actualizado_en` dice cuándo fue la última publicación, y `estado_publicacion` registra cada corrida de la publicación: si publicó o si la frenó el control de volumen, y por qué. El tablero muestra los días sin actualizar.
 
 **Huecos conocidos.**
 - **El histórico anterior a agosto de 2026 está incompleto.** Los meses de 2018 a mayo de 2026 tienen entre unas pocas y unos cientos de URLs, y junio y julio unas 150 por día: son las que el origen todavía conserva, más las que fuimos acumulando. Agosto y septiembre (unas 500 por día) probablemente estén cerca de completos. No hay una fuente independiente para medir cuánto falta.

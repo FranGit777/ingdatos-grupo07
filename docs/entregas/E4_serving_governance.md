@@ -14,7 +14,7 @@ Con esta entrega los datos hacen el recorrido completo: URLhaus → bronze → s
 
 **Es repetible: correrla dos veces deja lo mismo.** Las tres tablas se reemplazan (`TRUNCATE` + `INSERT`) dentro de **una sola transacción**: si algo falla en el medio, PostgreSQL vuelve a la versión anterior completa de las tres. Al terminar, verifica que cada tabla tenga las filas esperadas y que las tres sumen la misma cantidad de URLs; si no, la tarea falla y queda en rojo en Airflow. Cada tabla tiene **clave primaria** en su grano, así que una fila duplicada ni siquiera se puede insertar.
 
-**No publica una versión que perdió datos.** Antes de reemplazar las tablas compara las URLs de cada mes con la última publicación. Si un mes baja más de 10 URLs o del 1 %, la tarea falla, no toca nada y el tablero sigue mostrando la versión anterior (detalle en el README de E3).
+**No publica una versión que perdió datos.** Antes de reemplazar las tablas compara las URLs de cada mes con la última publicación. Si un mes baja más de 10 URLs o del 1 %, la tarea falla, no toca nada y el tablero sigue mostrando la versión anterior (detalle en el README de E3). Cada publicación, exitosa o frenada, queda registrada en `grupo07.estado_publicacion`, y el indicador de días sin actualizar del tablero la muestra.
 
 No usamos `to_sql(if_exists="replace")` de pandas, porque hace `DROP TABLE` y se pierde la clave primaria, los comentarios de las columnas y cualquier vista que dependa de la tabla.
 
@@ -26,10 +26,11 @@ NB06 verifica lo publicado: que las tres tablas sumen lo mismo y tengan clave pr
 
 ## 2. Tablero
 
-**"Amenazas URLhaus — grupo07"** en Metabase. Tiene 2 indicadores y 5 gráficos, y cada uno responde una pregunta. El detalle, las consultas y la captura están en [`docs/TABLERO.md`](../TABLERO.md).
+**"Amenazas URLhaus — grupo07"** en Metabase. Tiene 3 indicadores y 5 gráficos, y cada uno responde una pregunta. El detalle, las consultas y la captura están en [`docs/TABLERO.md`](../TABLERO.md).
 
 | Gráfico | Pregunta |
 | --- | --- |
+| Indicador | ¿Está al día el tablero? (días desde la última publicación) |
 | Indicador | ¿Cuántas URLs maliciosas nuevas se registraron el último mes completo, y cómo viene contra el anterior? |
 | Indicador | ¿Cuántas familias distintas estuvieron activas el último mes? |
 | Línea | ¿Cómo evolucionó la cantidad de URLs nuevas por mes? |

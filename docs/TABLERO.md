@@ -16,6 +16,20 @@ Lo que sí es cobertura: antes de agosto de 2026 los meses tienen pocas URLs por
 
 Todos se arman con *Nuevo → Consulta SQL*, eligiendo la base **warehouse** arriba a la izquierda (no "Sample Database"). El título de cada gráfico es la pregunta que responde.
 
+**0 · ¿Está al día el tablero?** — *Número* (Días sin actualizar). Cuenta los días desde la última publicación exitosa del DAG. Lo normal es 0, porque el DAG publica todas las noches. Si muestra 1 o más, el tablero tiene datos viejos: el control de volumen frenó la publicación o el DAG no corrió. El motivo está en el log de `publicar_gold` o en `grupo07.estado_publicacion` (consulta de abajo). Conviene ponerle formato condicional: verde en 0, rojo desde 1.
+```sql
+select current_date - max(publicado_en at time zone 'America/Argentina/Cordoba')::date as dias_sin_actualizar
+from grupo07.estado_publicacion
+where resultado = 'publicada'
+```
+Para ver qué pasó (*Nuevo → Consulta SQL*, no va en el tablero):
+```sql
+select publicado_en, resultado, detalle, urls_publicadas
+from grupo07.estado_publicacion
+order by publicado_en desc
+limit 10
+```
+
 **1 · ¿Cuántas URLs maliciosas nuevas se registraron el último mes completo, y cómo viene contra el anterior?** — visualización *Tendencia* (número grande con la variación)
 ```sql
 select fecha as mes, sum(cantidad_amenazas) as urls_nuevas
@@ -105,7 +119,7 @@ where f.fecha > desde.f
 group by 1, 2 order by 1, 3 desc
 ```
 
-**Armado:** arriba, el 1 y el 1b lado a lado; al medio, el 2 a lo ancho; abajo, el 3 y el 4 lado a lado, y el 5 a lo ancho.
+**Armado:** arriba, el 0, el 1 y el 1b lado a lado; al medio, el 2 a lo ancho; abajo, el 3 y el 4 lado a lado, y el 5 a lo ancho.
 
 **Qué decisión se toma con esto:** un equipo de seguridad ve si el volumen sube (1 y 2), qué familias lo explican y si son campañas puntuales o actividad sostenida (3), qué familias ganaron o perdieron más actividad este mes (4), y qué formatos bloquear o inspeccionar para cada una (5: `elf` apunta a dispositivos Linux/IoT; `exe` o `zip`, a usuarios de Windows).
 
