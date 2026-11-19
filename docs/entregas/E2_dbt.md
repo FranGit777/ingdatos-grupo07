@@ -17,7 +17,7 @@ En el JupyterHub, con el repo en `~/work` (ver [E1](E1_ingesta.md)) y bronze con
   ```bash
   cd ~/work && pip install -q -r requirements.txt
   cd dbt
-  dbt build --profiles-dir .                    # 4 modelos + 29 tests
+  dbt build --profiles-dir .                    # 4 modelos + 29 tests = 33 PASS
   dbt docs generate --static --profiles-dir .   # linaje en target/static_index.html
   ```
 
@@ -31,7 +31,8 @@ Una fila de silver es **una URL maliciosa reportada a URLhaus**, una sola vez. E
 |---|---|---|
 | `threat` vale `malware_download` en prácticamente todas las filas (solo 2 con `c2`): no sirve para distinguir amenazas | NB03, exploración | Deduce dos dimensiones nuevas de las etiquetas: **familia de malware** y **tipo de archivo** |
 | Las etiquetas mezclan la familia con ruido: tipo de archivo (`elf`, `exe`), arquitectura (`32-bit`, `mips`), hosting (`github`, `discord`), país (`CHN`), `dropped-by-*`, `ua-*` | NB03 | La familia es la primera etiqueta que no es nada de eso |
-| Con datos reales aparecieron como "familias" IPs escritas con guiones (`176-65-139-204`, a veces con puerto), dominios (`pw-dvx.to`, `bauble-cleverpondky-com`), honeypots y protocolos (`cowrie`, `ssh`), términos genéricos (`botnet`, `iot`, `docker`, `malware-download`) y pedazos de hash (`d52f85`) | Tabla de features, al revisar las familias más activas de octubre | Se excluyen con dos patrones (IP y dominio), una lista de genéricos y un patrón de hash. Verificado contra los 30 nombres reales con guiones y contra 29 familias reales: ningún falso positivo |
+| Con datos reales aparecieron como "familias" IPs escritas con guiones (`176-65-139-204`, a veces con puerto), dominios (`pw-dvx.to`, `bauble-cleverpondky-com`), honeypots y protocolos (`cowrie`, `ssh`), términos genéricos (`botnet`, `iot`, `docker`, `malware-download`) y pedazos de hash (`d52f85`) | Tabla de features, al revisar las familias más activas de octubre | Se excluyen con dos patrones (IP y dominio), una lista de genéricos y un patrón de hash |
+| Plataformas contadas como familias: `macOS`, `VSCode`, `NodeJS` | Ranking de familias del tablero | La lista de genéricos incluye las plataformas (macOS, VSCode, NodeJS, Windows, Linux, Android) |
 | La misma familia escrita distinto (`Mozi` / `mozi`, `Mirai` / `mirai`) | NB03 | Se unifica con la grafía más frecuente |
 | Las fechas se corrían 3 horas según la máquina: `cast(date_added as timestamp)` usa la zona horaria de la sesión, y con hora argentina las URLs de las últimas 3 horas de cada mes caían en el mes anterior | El bronze de prueba del CI, al comparar los conteos por mes | `profiles.yml` fija `TimeZone: UTC` y un test verifica que dbt corra en UTC |
 | La misma URL puede llegar más de una vez (reingestas, la carga histórica y la diaria se superponen) | Diseño de la ingesta | Deduplica por `id` y se queda con la observación más reciente |
@@ -63,18 +64,12 @@ Las columnas están documentadas en `schema.yml`, en lenguaje de negocio, y se v
 |---|---|---|
 | `assert_gold_cuadra` | Silver, las dos gold y los features no suman la misma cantidad de URLs | Una URL contada dos veces o perdida en una agregación |
 | `assert_fechas_validas` | URLs registradas antes de 2018 (cuando arrancó URLhaus) o en el futuro | Un error de parseo o de zona horaria en la ingesta |
-| `assert_familia_no_es_tag_generico` | Una arquitectura, extensión, hosting, país, IP, dominio, honeypot o hash contado como familia | **Falló de verdad:** con el silver anterior detectó las IPs y dominios que aparecían como familias en el tablero; lo usamos para validar el arreglo |
+| `assert_familia_no_es_tag_generico` | Una arquitectura, extensión, hosting, país, plataforma, IP, dominio, honeypot o hash contado como familia | Las IPs, dominios y plataformas que aparecían como familias en el tablero. Se ve fallar en el PR [#24](https://github.com/FranGit777/ingdatos-grupo07/pull/24): saca el patrón de IPs de silver, `176-65-139-204` pasa a contarse como familia y el CI bloquea el cambio |
 | `assert_zona_horaria_utc` | dbt corriendo con una zona horaria que no es UTC | El corrimiento de 3 horas que movía URLs de fin de mes al mes anterior |
 | `assert_features_sin_fuga` y `assert_features_consistentes` | Features que usan meses futuros, o fuera de rango (E4) | **`assert_features_consistentes` falló en producción:** en los meses sin URLs, la participación daba 0/0 = NaN, y DuckDB considera NaN mayor que 100. 359 filas. Se corrigió y el CI ahora incluye meses vacíos |
 
-Si un test falla, `dbt build` termina con error, el DAG no publica y PostgreSQL conserva la última versión buena.
+Son 29 tests en total. Si uno falla, `dbt build` termina con error, el DAG no publica y PostgreSQL conserva la última versión buena.
 
 ## 5. Linaje
 
 `dbt docs generate --static` (sección 4 de NB04) arma el sitio con las descripciones y el grafo de linaje en `dbt/target/static_index.html`. La versión estática está en [`docs/linaje.png`](../linaje.png), generada de los `ref()` de los modelos con `python scripts/linaje.py`.
-
-## 6. Para la demo (10 minutos)
-
-1. **Build en verde:** NB04 sección 2 (o `dbt build` en la terminal): 4 modelos y 33 tests en PASS.
-2. **Un test fallando:** el pull request de demostración [#24](https://github.com/FranGit777/ingdatos-grupo07/pull/24) saca el patrón de IPs de silver; el CI corre `dbt build` sobre el bronze de prueba y `assert_familia_no_es_tag_generico` falla porque `176-65-139-204` pasa a contarse como familia. El PR queda bloqueado.
-3. **Linaje:** abrir `static_index.html` y mostrar el grafo bronze → silver → gold → features.
