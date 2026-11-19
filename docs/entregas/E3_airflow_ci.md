@@ -56,6 +56,8 @@ La pregunta que guía cada número: ¿qué falla esperamos que el reintento resu
 
 Además, cada tarea tiene un límite de tiempo (`execution_timeout`: 1 hora, 2 para `extraer_bronze`): una tarea colgada falla en vez de bloquear las corridas siguientes.
 
+**Si la corrida falla igual:** la tarea queda en rojo en el grafo, las siguientes no corren y el log de la tarea dice el motivo (por ejemplo `falla permanente (clave, endpoint o pedido), no se reintenta`). PostgreSQL y el tablero conservan la última versión buena. La vista *Grid* guarda el historial de corridas. Un aviso por correo o chat necesita un servidor de correo configurado en Airflow, que administra la cátedra.
+
 **Reintentar es seguro porque todas las tareas son idempotentes:** `extraer_bronze` hace upsert por `id` (correrla dos veces deja bronze igual), dbt recalcula todo desde bronze, y `publicar_gold` reemplaza las tablas dentro de una transacción. Un reintento nunca duplica datos.
 
 ## 5. Integración continua
@@ -66,15 +68,8 @@ Además, cada tarea tiene un límite de tiempo (`execution_timeout`: 1 hora, 2 p
 |---|---|
 | Sin credenciales en el repo | Que no haya un `.env` versionado ni claves escritas en el código |
 | DAG importa en Airflow | Con Airflow 2.10.5: sintaxis de `dags/`, que el DAG importe sin errores, sus 5 tareas y dependencias, que tenga schedule y reintentos, que `extraer_bronze` reciba el intervalo de Airflow y que existan los parámetros del reproceso (`ci/verificar_dag.py`) |
-| dbt parse + build con bronze de prueba | Levanta un S3 descartable, carga un bronze de prueba con el mismo esquema y la misma ruta que producción (`ci/bronze_de_prueba.py`: un id repetido, Mozi/mozi, IPs, dominios, honeypots, meses sin URLs) y corre `dbt parse` (el SQL compila) y `dbt build` (los 33 tests) |
+| dbt parse + build con bronze de prueba | Levanta un S3 descartable, carga un bronze de prueba con el mismo esquema y la misma ruta que producción (`ci/bronze_de_prueba.py`: un id repetido, Mozi/mozi, IPs, dominios, honeypots, meses sin URLs) y corre `dbt parse` (el SQL compila) y `dbt build` (4 modelos y 29 tests) |
 
 **Bloquea:** `main` está protegida. Todo cambio entra por pull request, los tres checks tienen que estar en verde para poder mergear, y la regla aplica también a los administradores. Un cambio que rompe el DAG o un test no entra.
 
-**Si falla:** el check queda en rojo en el PR con el log del paso que falló, y el botón de merge queda deshabilitado hasta que se arregle con un commit nuevo en la misma rama.
-
-## 6. Para la demo (10 minutos)
-
-1. **El DAG en la interfaz:** vista *Graph* (las 5 tareas y sus dependencias) y *Grid* (el historial de corridas).
-2. **Una corrida** en verde, o el historial.
-3. **Backfill en vivo:** elegir un día en el momento, dispararlo con su *Logical date* y mostrar en el log de `extraer_bronze` que procesó ese día y no el de hoy.
-4. **CI en verde y en rojo:** un PR normal con los tres checks en verde, y el PR de demostración [#25](https://github.com/FranGit777/ingdatos-grupo07/pull/25) que rompe el DAG, con el check en rojo y el merge bloqueado.
+**Si falla:** el check queda en rojo en el PR con el log del paso que falló, y el botón de merge queda deshabilitado hasta que se arregle con un commit nuevo en la misma rama. Se ve en dos PR que quedan abiertos a propósito: [#25](https://github.com/FranGit777/ingdatos-grupo07/pull/25) rompe el DAG y falla *DAG importa en Airflow*; [#24](https://github.com/FranGit777/ingdatos-grupo07/pull/24) rompe la limpieza de silver y falla *dbt parse + build*.
