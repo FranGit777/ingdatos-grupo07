@@ -27,9 +27,9 @@ Usamos dos accesos de URLhaus:
 
 1. **Bronze** (Delta Lake en MinIO, `s3://grupo07/bronze/series`): una fila por URL, tal como la publica URLhaus. Nunca se borra: cada carga agrega las URLs nuevas y actualiza las que ya estaban (por ejemplo, si pasaron de online a offline).
 2. **Silver** (`stg_urlhaus`): una fila por URL sin duplicados, con fechas en UTC, y con la familia de malware y el tipo de archivo deducidos de las etiquetas, descartando las que no son una familia (arquitecturas, servicios de hosting, países, IPs, dominios, honeypots, términos genéricos).
-3. **Gold** (`fct_familias_mensual`): cuenta las URLs por mes, familia y tipo de archivo. `fct_amenazas_mensual` es su total por mes.
+3. **Gold** (`fct_familias_mensual`): cuenta las URLs por mes, familia y tipo de archivo. `fct_amenazas_mensual` es su total por mes, y `fct_amenazas_diarias` cuenta las URLs por día, para seguir el mes en curso.
 4. **Features** (`fct_features_familias`): por mes y familia, el mes anterior, la variación, el promedio de 3 meses, el acumulado y la participación en el mes, usando siempre solo datos de ese mes o anteriores.
-5. **Publicación**: las tres tablas se copian a PostgreSQL en una sola operación (si algo falla, queda la versión anterior completa) y de ahí las lee Metabase.
+5. **Publicación**: las cuatro tablas se copian a PostgreSQL en una sola operación (si algo falla, queda la versión anterior completa) y de ahí las lee Metabase.
 
 **Diagrama de linaje**, generado de los `ref()` de los modelos dbt con `scripts/linaje.py`, no dibujado a mano (el grafo interactivo sale de `dbt docs generate --static`, sección 4 de NB04):
 
@@ -53,6 +53,16 @@ Usamos dos accesos de URLhaus:
 ### `fct_amenazas_mensual` — URLs nuevas por mes
 
 Las mismas `anio`, `mes`, `tipo_amenaza`, `cantidad_amenazas` y `actualizado_en`, sumadas por mes. Coincide siempre con la suma de `fct_familias_mensual` (se calcula a partir de ella).
+
+### `fct_amenazas_diarias` — URLs nuevas por día
+
+| Columna | Tipo | Significado | Ejemplo |
+| --- | --- | --- | --- |
+| `fecha` | date | Día (UTC) en que URLhaus registró las URLs. Solo aparecen días con al menos una URL | `2026-11-18` |
+| `cantidad_amenazas` | bigint | URLs maliciosas distintas registradas ese día | `914` |
+| `actualizado_en` | timestamptz | Cuándo el pipeline publicó la fila | `2026-11-19 19:40:00+00` |
+
+Suma lo mismo que las tablas mensuales. Sirve para comparar el mes en curso con el mismo tramo del mes anterior.
 
 ### `fct_features_familias` — Tendencia de cada familia
 
@@ -82,7 +92,7 @@ Tres niveles: **Público** (ya es público en el origen), **Interno** (no es sec
 
 | Campo | Dónde está | Nivel | Por qué |
 | --- | --- | --- | --- |
-| Todas las columnas de las tres tablas publicadas | gold, PostgreSQL, Metabase | **Público** | Son conteos agregados por mes, familia y tipo de archivo. Ninguna fila corresponde a una URL, a un sitio ni a una persona. |
+| Todas las columnas de las cuatro tablas publicadas | gold, PostgreSQL, Metabase | **Público** | Son conteos agregados por mes, familia y tipo de archivo. Ninguna fila corresponde a una URL, a un sitio ni a una persona. |
 | `id_amenaza`, `fecha_agregado`, `tipo_amenaza`, `estado`, `familia_malware`, `tipo_archivo`, `etiquetas` | bronze y silver | **Público** | URLhaus los muestra en su sitio para cada URL. |
 | `url_maliciosa` | bronze y silver | **Interno** | Es pública en URLhaus, pero apunta a malware que puede seguir activo. Además, muchas son sitios legítimos que fueron hackeados, y la URL identifica al sitio afectado (y a veces a su dueño). No se publica ni se muestra como enlace. |
 | `reportero` | bronze y silver | **Interno, con criterio de sensible** | Es el usuario de URLhaus que reportó la URL: identifica a una persona o a un equipo. Es público en URLhaus, pero no lo necesitamos para la pregunta del dataset, así que no sale de silver (minimización). |
@@ -99,7 +109,7 @@ Tres niveles: **Público** (ya es público en el origen), **Interno** (no es sec
 - Ninguna "familia" es en realidad una arquitectura, un tipo de archivo, un servicio de hosting, un país, una IP, un dominio o un término genérico.
 - Silver, las dos gold y los features suman exactamente la misma cantidad de URLs.
 - Ningún feature usa meses posteriores. Las participaciones están entre 0 % y 100 %, y no hay mes y familia repetidos.
-- En PostgreSQL, claves primarias y meses entre 1 y 12. Además, las tres tablas tienen que sumar lo mismo para que la publicación se confirme.
+- En PostgreSQL, claves primarias y meses entre 1 y 12. Además, las cuatro tablas tienen que sumar lo mismo para que la publicación se confirme.
 
 **Frescura.** Se actualiza una vez por día, a las 00:00 de Córdoba (03:00 UTC), con las URLs del día anterior. Una URL reportada hoy aparece mañana. `actualizado_en` dice cuándo fue la última publicación, y `estado_publicacion` registra cada corrida de la publicación: si publicó o si la frenó el control de volumen, y por qué. El tablero muestra los días sin actualizar.
 

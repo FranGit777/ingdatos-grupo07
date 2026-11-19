@@ -4,15 +4,16 @@ Con esta entrega los datos hacen el recorrido completo: URLhaus → bronze → s
 
 ## 1. Publicación de la gold en PostgreSQL
 
-**Es la última tarea del DAG**, `publicar_gold`, y corre todos los días después de `dbt_build`. Nadie tiene que correr un notebook para que el warehouse se actualice. Publica tres tablas en `warehouse.grupo07`:
+**Es la última tarea del DAG**, `publicar_gold`, y corre todos los días después de `dbt_build`. Nadie tiene que correr un notebook para que el warehouse se actualice. Publica cuatro tablas en `warehouse.grupo07`:
 
 | Tabla | Grano | Para qué |
 | --- | --- | --- |
 | `fct_familias_mensual` | mes × familia × tipo de archivo | Rankings de familias y tipos de archivo |
 | `fct_amenazas_mensual` | mes × tipo de amenaza | Volumen total por mes |
+| `fct_amenazas_diarias` | día | El mes en curso contra el mismo tramo del mes anterior |
 | `fct_features_familias` | mes × familia | Tendencia de cada familia (features) |
 
-**Es repetible: correrla dos veces deja lo mismo.** Las tres tablas se reemplazan (`TRUNCATE` + `INSERT`) dentro de **una sola transacción**: si algo falla en el medio, PostgreSQL vuelve a la versión anterior completa de las tres. Al terminar, verifica que cada tabla tenga las filas esperadas y que las tres sumen la misma cantidad de URLs; si no, la tarea falla y queda en rojo en Airflow. Cada tabla tiene **clave primaria** en su grano, así que una fila duplicada ni siquiera se puede insertar.
+**Es repetible: correrla dos veces deja lo mismo.** Las cuatro tablas se reemplazan (`TRUNCATE` + `INSERT`) dentro de **una sola transacción**: si algo falla en el medio, PostgreSQL vuelve a la versión anterior completa de las cuatro. Al terminar, verifica que cada tabla tenga las filas esperadas y que las cuatro sumen la misma cantidad de URLs; si no, la tarea falla y queda en rojo en Airflow. Cada tabla tiene **clave primaria** en su grano, así que una fila duplicada ni siquiera se puede insertar.
 
 **No publica una versión que perdió datos.** Antes de reemplazar las tablas compara las URLs de cada mes con la última publicación. Si un mes baja más de 10 URLs o del 1 %, la tarea falla, no toca nada y el tablero sigue mostrando la versión anterior (detalle en el README de E3). Cada publicación, exitosa o frenada, queda registrada en `grupo07.estado_publicacion`, y el indicador de días sin actualizar del tablero la muestra.
 
@@ -22,11 +23,11 @@ No usamos `to_sql(if_exists="replace")` de pandas, porque hace `DROP TABLE` y se
 
 **Documentación dentro del warehouse:** `publicar_gold` copia las descripciones de `schema.yml` como `COMMENT` de PostgreSQL. Metabase las muestra al lado de cada columna, y la documentación se escribe una sola vez, en dbt.
 
-NB06 verifica lo publicado: que las tres tablas sumen lo mismo y tengan clave primaria, las familias del último mes y los comentarios.
+NB06 verifica lo publicado: que las cuatro tablas sumen lo mismo y tengan clave primaria, las familias del último mes y los comentarios.
 
 ## 2. Tablero
 
-**"Amenazas URLhaus — grupo07"** en Metabase. Tiene 3 indicadores y 5 gráficos, y cada uno responde una pregunta. El detalle, las consultas y la captura están en [`docs/TABLERO.md`](../TABLERO.md).
+**"Amenazas URLhaus — grupo07"** en Metabase. Tiene 4 indicadores y 6 gráficos, y cada uno responde una pregunta. El detalle, las consultas y la captura están en [`docs/TABLERO.md`](../TABLERO.md).
 
 | Gráfico | Pregunta |
 | --- | --- |
@@ -37,6 +38,8 @@ NB06 verifica lo publicado: que las tres tablas sumen lo mismo y tengan clave pr
 | Barras apiladas | ¿Qué familias explican el volumen de cada mes? |
 | Barras horizontales | ¿Qué familias sumaron y perdieron más URLs respecto del mes anterior? |
 | Barras al 100 % | ¿Con qué tipo de archivo se distribuye cada familia? |
+| Indicador | ¿Cómo viene el mes en curso contra el anterior, al mismo día? |
+| Línea | ¿Cómo se acumulan las URLs día a día, este mes contra el anterior? |
 
 **Qué decisión se toma con esto:** un equipo de seguridad ve si el volumen sube, qué familias lo explican y si son campañas puntuales o actividad sostenida, y qué formatos bloquear o inspeccionar para cada familia. Por ejemplo, `elf` apunta a dispositivos Linux e IoT, y `exe` o `zip`, a usuarios de Windows.
 

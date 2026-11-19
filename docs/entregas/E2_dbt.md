@@ -4,8 +4,9 @@
 **Lee de:** el bronze real, la tabla Delta `s3://grupo07/bronze/series` en MinIO (`read_parquet('s3://grupo07/bronze/series/*.parquet')` en `stg_urlhaus`). No hay seeds ni CSV.
 
 ```
-bronze (Delta, MinIO) ─▶ stg_urlhaus (silver) ─▶ fct_familias_mensual (gold) ─▶ fct_amenazas_mensual (gold)
-                                                          └──────────────────▶ fct_features_familias (E4)
+bronze (Delta, MinIO) ─▶ stg_urlhaus (silver) ─┬─▶ fct_familias_mensual (gold) ─┬─▶ fct_amenazas_mensual (gold)
+                                                │                                └─▶ fct_features_familias (E4)
+                                                └─▶ fct_amenazas_diarias (gold)
 ```
 
 ## 1. Cómo correr el build desde cero
@@ -17,7 +18,7 @@ En el JupyterHub, con el repo en `~/work` (ver [E1](E1_ingesta.md)) y bronze con
   ```bash
   cd ~/work && pip install -q -r requirements.txt
   cd dbt
-  dbt build --profiles-dir .                    # 4 modelos + 29 tests = 33 PASS
+  dbt build --profiles-dir .                    # 5 modelos + 32 tests = 37 PASS
   dbt docs generate --static --profiles-dir .   # linaje en target/static_index.html
   ```
 
@@ -51,6 +52,7 @@ Una fila de silver es **una URL maliciosa reportada a URLhaus**, una sola vez. E
 
 - **`fct_familias_mensual`** (gold atómica): URLs nuevas por mes × familia × tipo de archivo. Unas 2.000 filas contra las casi 190.000 de silver.
 - **`fct_amenazas_mensual`** (gold agregada): URLs nuevas por mes, para la pregunta "¿sube o baja el volumen?". Se calcula sumando la atómica, así que las dos nunca pueden contradecirse (diseño Kimball: un hecho atómico y un agregado derivado).
+- **`fct_amenazas_diarias`** (gold diaria): URLs nuevas por día, para seguir el mes en curso contra el mismo tramo del mes anterior sin esperar a que termine. Sale de silver y el test de cuadre verifica que sume lo mismo que las demás.
 
 Las columnas están documentadas en `schema.yml`, en lenguaje de negocio, y se ven en `dbt docs` y como comentarios en PostgreSQL.
 
@@ -68,7 +70,7 @@ Las columnas están documentadas en `schema.yml`, en lenguaje de negocio, y se v
 | `assert_zona_horaria_utc` | dbt corriendo con una zona horaria que no es UTC | El corrimiento de 3 horas que movía URLs de fin de mes al mes anterior |
 | `assert_features_sin_fuga` y `assert_features_consistentes` | Features que usan meses futuros, o fuera de rango (E4) | **`assert_features_consistentes` falló en producción:** en los meses sin URLs, la participación daba 0/0 = NaN, y DuckDB considera NaN mayor que 100. 359 filas. Se corrigió y el CI ahora incluye meses vacíos |
 
-Son 29 tests en total. Si uno falla, `dbt build` termina con error, el DAG no publica y PostgreSQL conserva la última versión buena.
+Son 32 tests en total. Si uno falla, `dbt build` termina con error, el DAG no publica y PostgreSQL conserva la última versión buena.
 
 ## 5. Linaje
 
