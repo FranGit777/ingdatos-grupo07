@@ -119,13 +119,14 @@ where f.fecha > desde.f
 group by 1, 2 order by 1, 3 desc
 ```
 
-**6 · ¿Cómo viene el mes en curso contra el anterior, al mismo día?** — *Tendencia*. Compara las URLs del mes en curso hasta el último día con datos contra el mismo tramo del mes anterior (por ejemplo, del 1 al 19 de noviembre contra el 1 al 19 de octubre). Es la comparación justa: contra el mes anterior completo, el mes en curso siempre parecería bajar. Un dato nuevo se ve acá apenas el DAG lo publica.
+**6 · ¿Cómo viene el mes en curso contra el anterior, al mismo día?** — *Tendencia*. Compara las URLs del mes en curso hasta el último día con datos contra el mismo tramo del mes anterior (por ejemplo, del 1 al 19 de noviembre contra el 1 al 19 de octubre). Es la comparación justa: contra el mes anterior completo, el mes en curso siempre parecería bajar. Un dato nuevo se ve acá apenas el DAG lo publica. Cada fila lleva como fecha el último día incluido (por ejemplo 19/11 y 19/10), así Metabase muestra hasta qué día compara.
 ```sql
 with r as (
     select date_trunc('month', max(fecha))::date as mes_actual,
            extract(day from max(fecha))::int as dia_mes
     from grupo07.fct_amenazas_diarias)
-select m.mes, sum(d.cantidad_amenazas) as urls_al_mismo_dia
+select least(m.mes + r.dia_mes, (m.mes + interval '1 month')::date) - 1 as hasta_el_dia,
+       sum(d.cantidad_amenazas) as urls_del_mes_hasta_ese_dia
 from r
 cross join lateral (values (r.mes_actual), ((r.mes_actual - interval '1 month')::date)) as m(mes)
 join grupo07.fct_amenazas_diarias d
