@@ -92,3 +92,4 @@ Si un job falla, el check queda en rojo y la protección de rama de `main` impid
 - Al reiniciar el Hub se pierde lo instalado con `pip`: correr la celda de instalación de cada notebook.
 - Las credenciales van en `dags/.env`, que nunca se commitea (ver `.env.example`).
 - Para regenerar el diagrama de linaje: `python scripts/linaje.py` (necesita graphviz).
+- Para armar los zips de las entregas: correr los notebooks y después `python scripts/armar_entregas.py` (quedan en `entregas_zip/`).
