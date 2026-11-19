@@ -27,24 +27,23 @@ NB06 verifica lo publicado: que las cuatro tablas sumen lo mismo y tengan clave 
 
 ## 2. Tablero
 
-**"Amenazas URLhaus — grupo07"** en Metabase. Tiene 4 indicadores y 7 gráficos, y cada uno responde una pregunta. El detalle, las consultas y la captura están en [`docs/TABLERO.md`](../TABLERO.md).
+**"Amenazas URLhaus — grupo07"** en Metabase. Tiene 4 indicadores y 5 gráficos, y cada uno responde una pregunta. Se lee de arriba hacia abajo en tres partes: lo que pasa este mes, cómo cerró el mes pasado, y qué familias explican el volumen y en qué formato llegan. El detalle, las consultas y la captura están en [`docs/TABLERO.md`](../TABLERO.md).
 
-| Gráfico | Pregunta |
-| --- | --- |
-| Indicador | ¿Está al día el tablero? (días desde la última publicación) |
-| Indicador | ¿Cuántas URLs maliciosas nuevas se registraron el último mes completo, y cómo viene contra el anterior? |
-| Indicador | ¿Cuántas familias distintas estuvieron activas el último mes? |
-| Línea | ¿Cómo evolucionó la cantidad de URLs nuevas por mes? |
-| Barras apiladas | ¿Qué familias explican el volumen de cada mes? |
-| Barras horizontales | ¿Qué familias sumaron y perdieron más URLs respecto del mes anterior? |
-| Barras al 100 % | ¿Con qué tipo de archivo se distribuye cada familia? |
-| Indicador | ¿Cuántas URLs nuevas entraron en lo que va del mes? |
-| Barras | ¿Cuántas URLs nuevas entraron cada día, en los últimos 30 días? |
-| Barras horizontales | ¿Qué familias son las más activas en lo que va del mes? |
+| Parte | Tarjeta | Pregunta |
+| --- | --- | --- |
+| Este mes | Indicador | ¿Está al día el tablero? (días sin actualizar) |
+| Este mes | Indicador | ¿Cuántas URLs nuevas entraron este mes? |
+| Este mes | Indicador | ¿Cuántas familias distintas están activas este mes? |
+| Este mes | Barras horizontales | ¿Qué familias son las más activas este mes? |
+| Este mes | Barras | ¿Cuántas URLs nuevas entraron cada día, en los últimos 30 días? |
+| El mes pasado | Indicador | ¿Cuántas URLs nuevas hubo el último mes completo, y cómo viene contra el anterior? |
+| El mes pasado | Línea | ¿Cómo evolucionó la cantidad de URLs nuevas por mes? |
+| Quiénes y cómo | Barras al 100 % | ¿Con qué tipo de archivo se distribuye cada familia? |
+| Quiénes y cómo | Barras apiladas | ¿Qué familias explican el volumen de cada mes? |
 
 **Qué decisión se toma con esto:** un equipo de seguridad ve si el volumen sube, qué familias lo explican y si son campañas puntuales o actividad sostenida, y qué formatos bloquear o inspeccionar para cada familia. Por ejemplo, `elf` apunta a dispositivos Linux e IoT, y `exe` o `zip`, a usuarios de Windows.
 
-**Cómo leer octubre de 2026:** el indicador marca +707 % contra septiembre. Es un pico de reportes: un solo reportero, `wristhulk`, cargó el 51 % del dataset desde el 29/09, y en ese período aparecen en masa las familias que muestra el gráfico de volumen por familia (SmartLoader, SalatStealer, zapret, LuaJIT-loader). Con estos datos no se puede separar cuánto es más malware y cuánto es más actividad de reporte.
+**Cómo leer octubre de 2026:** el indicador marca +707 % contra septiembre, y el gráfico de URLs por día muestra que el pico se concentró entre el 24 y el 27 de octubre. Es un pico de reportes: un solo reportero, `wristhulk`, cargó el 51 % del dataset desde el 29/09, y en ese período aparecen en masa las familias que muestra el gráfico de volumen por familia (SmartLoader, SalatStealer, zapret, LuaJIT-loader). Con estos datos no se puede separar cuánto es más malware y cuánto es más actividad de reporte.
 
 **Carga rápido** porque cada gráfico lee tablas de unas pocas miles de filas, ya agregadas por dbt. Metabase no agrega casi nada.
 
